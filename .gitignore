@@ -1,0 +1,364 @@
+# =======================================================================
+# OBSIDIAN SEMANTIC SEARCH PLUGIN - COMPREHENSIVE .GITIGNORE
+# Merged from GitHub's official templates: Node.js, Python, macOS
+# =======================================================================
+
+# =======================================================================
+# BUILD OUTPUTS & COMPILED FILES
+# =======================================================================
+
+# Main build outputs (consolidate in build/ directory)
+/build/
+/dist/
+
+# Legacy build files in root (should be moved to build/)
+main.js
+main.js.map
+main-*.js
+main-*.js.map
+test-*.js
+test-*.js.map
+*.tsbuildinfo
+
+# TypeScript compilation
+lib/
+lib-cov/
+
+# Native module stubs (project-specific)
+canvas.js
+sharp.js
+onnxruntime-node.js
+node-pre-gyp.js
+
+# Test artifacts
+test-model-loading.js
+test-rxdb-schemas.js
+
+# =======================================================================
+# AI MODELS & LARGE BINARY FILES
+# =======================================================================
+
+# AI Models (download with npm run download-models)
+/models/
+*.bin
+*.onnx
+*.wasm
+*.safetensors
+
+# Model cache directories
+.transformers-cache/
+.huggingface/
+
+# =======================================================================
+# NODE.JS & NPM
+# =======================================================================
+
+# Dependencies
+node_modules/
+jspm_packages/
+web_modules/
+
+# Package manager files
+.pnp
+.pnp.js
+.yarn-integrity
+*.tgz
+.npm
+.yarn-error.log*
+
+# Package-lock conflicts
+package-lock.json
+yarn.lock
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage & testing
+coverage/
+*.lcov
+.nyc_output/
+.jest/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# =======================================================================
+# PYTHON (for obsidian-search CLI tool)
+# =======================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python testing
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# =======================================================================
+# MACOS
+# =======================================================================
+
+# General
+.DS_Store
+.DS_Store?
+__MACOSX/
+.AppleDouble
+.LSOverride
+Icon[]
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# =======================================================================
+# DEVELOPMENT TOOLS & CACHES
+# =======================================================================
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ESLint & Stylelint
+.eslintcache
+.stylelintcache
+
+# Bundler caches
+.cache/
+.parcel-cache/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# =======================================================================
+# FRAMEWORK-SPECIFIC
+# =======================================================================
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+.output/
+
+# Gatsby
+.cache/
+public/
+
+# Vuepress
+.vuepress/dist/
+
+# Storybook
+.out/
+.storybook-out/
+
+# SvelteKit
+.svelte-kit/
+
+# =======================================================================
+# ENVIRONMENT & CONFIGURATION
+# =======================================================================
+
+# Environment files
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Configuration files with secrets
+config/local.json
+config/production.json
+
+# =======================================================================
+# TEMPORARY & MISCELLANEOUS
+# =======================================================================
+
+# Temporary folders
+tmp/
+temp/
+
+# OS generated files
+ehthumbs.db
+Thumbs.db
+
+# Editor backups
+*.bak
+*.backup
+*.orig
+
+# Compressed files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# =======================================================================
+# PROJECT-SPECIFIC
+# =======================================================================
+
+# Obsidian workspace files (vault-specific)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/hotkeys.json
+.obsidian/core-plugins.json
+.obsidian/community-plugins.json
+
+# Plugin cache
+.obsidian-search-cache/
+
+# Legacy CLI tool directory (no longer needed)
+obsidian-search/
+
+# Test files that shouldn't be committed
+*.test.old.js
+*.test.fixed.js
+
+# Base files used for testing
+*.base
+
+# =======================================================================
+# BUILD SYSTEM ARTIFACTS
+# =======================================================================
+
+# Grunt
+.grunt/
+
+# Bower
+bower_components/
+
+# Rollup
+.rollup.cache/
+
+# Webpack
+.webpack/
+
+# Microbundle
+.microbundle-cache/
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# =======================================================================
+# SECURITY & KEYS
+# =======================================================================
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+
+# SSL certificates
+*.crt
+*.csr
+
+# SSH keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+
+
+# Ignore Smart Environment folder
+.smart-env

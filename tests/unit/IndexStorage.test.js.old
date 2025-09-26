@@ -1,0 +1,425 @@
+// Unit tests for IndexStorage service
+// Tests RxDB operations, schema validation, and data persistence
+
+import { IndexStorage } from '../../src/services/IndexStorage';
+
+// Mock RxDB to avoid actual database operations in unit tests
+jest.mock('rxdb', () => {
+    const mockCollection = {
+        insert: jest.fn(),
+        findOne: jest.fn(),
+        find: jest.fn(),
+        upsert: jest.fn(),
+        bulkInsert: jest.fn(),
+        bulkUpsert: jest.fn(),
+        remove: jest.fn()
+    };
+
+    const mockDatabase = {
+        addCollections: jest.fn().mockResolvedValue({
+            documents: mockCollection,
+            chunks: mockCollection,
+            embeddings: mockCollection
+        }),
+        remove: jest.fn()
+    };
+
+    return {
+        createRxDatabase: jest.fn().mockResolvedValue(mockDatabase),
+        addRxPlugin: jest.fn(),
+        RxDatabase: jest.fn(),
+        RxCollection: jest.fn()
+    };
+});
+
+jest.mock('rxdb/plugins/storage-dexie', () => ({
+    getRxStorageDexie: jest.fn()
+}));
+
+jest.mock('rxdb/plugins/dev-mode', () => ({
+    RxDBDevModePlugin: {}
+}));
+
+describe('IndexStorage', () => {
+    let storage;
+    let mockCollections;
+
+    beforeEach(async () => {
+        jest.clearAllMocks();
+
+        // Set up mock collections that will be returned
+        mockCollections = {
+            documents: {
+                insert: jest.fn().mockResolvedValue({ id: '123' }),
+                findOne: jest.fn(),
+                find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+                upsert: jest.fn().mockResolvedValue({ id: '123' }),
+                bulkInsert: jest.fn().mockResolvedValue({ success: [] }),
+                bulkUpsert: jest.fn().mockResolvedValue([]),
+                remove: jest.fn()
+            },
+            chunks: {
+                insert: jest.fn().mockResolvedValue({ id: '456' }),
+                findOne: jest.fn(),
+                find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+                upsert: jest.fn().mockResolvedValue({ id: '456' }),
+                bulkInsert: jest.fn().mockResolvedValue({ success: [] }),
+                bulkUpsert: jest.fn().mockResolvedValue([]),
+                remove: jest.fn()
+            },
+            embeddings: {
+                insert: jest.fn().mockResolvedValue({ id: '789' }),
+                findOne: jest.fn(),
+                find: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+                upsert: jest.fn().mockResolvedValue({ id: '789' }),
+                bulkInsert: jest.fn().mockResolvedValue({ success: [] }),
+                bulkUpsert: jest.fn().mockResolvedValue([]),
+                remove: jest.fn()
+            }
+        };
+
+        // Reset the mock for each test
+        const rxdb = require('rxdb');
+        rxdb.createRxDatabase.mockResolvedValue({
+            addCollections: jest.fn().mockResolvedValue(mockCollections),
+            remove: jest.fn(),
+            destroy: jest.fn().mockResolvedValue(true)
+        });
+
+        storage = new IndexStorage();
+        await storage.initialize('test-vault');
+    });
+
+    afterEach(async () => {
+        if (storage) {
+            await storage.close();
+        }
+    });
+
+    describe('initialization', () => {
+        test('initializes with correct vault name', () => {
+            expect(storage.vaultName).toBe('test-vault');
+        });
+
+        test('creates database with correct configuration', async () => {
+            const rxdb = require('rxdb');
+
+            expect(rxdb.createRxDatabase).toHaveBeenCalledWith({
+                name: expect.stringMatching(/obsidian_search_/),
+                storage: expect.any(Function),
+                multiInstance: false
+            });
+        });
+
+        test('creates all required collections', async () => {
+            expect(storage.db.addCollections).toHaveBeenCalledWith({
+                documents: { schema: expect.objectContaining({
+                    version: 0,
+                    primaryKey: 'id',
+                    type: 'object',
+                    properties: expect.objectContaining({
+                        id: expect.any(Object),
+                        filePath: expect.any(Object),
+                        modifiedDate: expect.any(Object),
+                        content: expect.any(Object),
+                        tags: expect.any(Object)
+                    })
+                })},
+                chunks: { schema: expect.objectContaining({
+                    version: 0,
+                    primaryKey: 'id',
+                    type: 'object',
+                    properties: expect.objectContaining({
+                        id: expect.any(Object),
+                        documentId: expect.any(Object),
+                        chunkIndex: expect.any(Object),
+                        content: expect.any(Object)
+                    })
+                })},
+                embeddings: { schema: expect.objectContaining({
+                    version: 0,
+                    primaryKey: 'id',
+                    type: 'object',
+                    properties: expect.objectContaining({
+                        id: expect.any(Object),
+                        chunkId: expect.any(Object),
+                        embedding: expect.any(Object)
+                    })
+                })}
+            });
+        });
+    });
+
+    describe('document operations', () => {
+        test('stores document successfully', async () => {
+            const document = {
+                id: 'doc1',
+                filePath: '/path/to/file.md',
+                modifiedDate: new Date().toISOString(),
+                content: 'Test content',
+                tags: ['tag1', 'tag2']
+            };
+
+            await storage.storeDocument(document);
+
+            expect(mockCollections.documents.upsert).toHaveBeenCalledWith(document);
+        });
+
+        test('gets document by ID', async () => {
+            const mockDoc = { id: 'doc1', filePath: '/path/to/file.md' };
+            mockCollections.documents.findOne.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockDoc)
+            });
+
+            const result = await storage.getDocument('doc1');
+
+            expect(mockCollections.documents.findOne).toHaveBeenCalledWith('doc1');
+            expect(result).toEqual(mockDoc);
+        });
+
+        test('gets documents by file path', async () => {
+            const mockDocs = [
+                { id: 'doc1', filePath: '/path/to/file.md' },
+                { id: 'doc2', filePath: '/path/to/file2.md' }
+            ];
+            mockCollections.documents.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockDocs)
+            });
+
+            const result = await storage.getDocumentsByPath('/path/to/');
+
+            expect(mockCollections.documents.find).toHaveBeenCalledWith({
+                selector: {
+                    filePath: { $regex: '^/path/to/' }
+                }
+            });
+            expect(result).toEqual(mockDocs);
+        });
+
+        test('removes document by ID', async () => {
+            const mockDoc = {
+                id: 'doc1',
+                remove: jest.fn().mockResolvedValue(true)
+            };
+            mockCollections.documents.findOne.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockDoc)
+            });
+
+            await storage.removeDocument('doc1');
+
+            expect(mockDoc.remove).toHaveBeenCalled();
+        });
+
+        test('handles document not found gracefully', async () => {
+            mockCollections.documents.findOne.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(null)
+            });
+
+            const result = await storage.getDocument('nonexistent');
+
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('chunk operations', () => {
+        test('stores chunks in bulk', async () => {
+            const chunks = [
+                { id: 'chunk1', documentId: 'doc1', chunkIndex: 0, content: 'First chunk' },
+                { id: 'chunk2', documentId: 'doc1', chunkIndex: 1, content: 'Second chunk' }
+            ];
+
+            await storage.storeChunks(chunks);
+
+            expect(mockCollections.chunks.bulkUpsert).toHaveBeenCalledWith(chunks);
+        });
+
+        test('gets chunks for document', async () => {
+            const mockChunks = [
+                { id: 'chunk1', documentId: 'doc1', chunkIndex: 0 },
+                { id: 'chunk2', documentId: 'doc1', chunkIndex: 1 }
+            ];
+            mockCollections.chunks.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockChunks)
+            });
+
+            const result = await storage.getChunksForDocument('doc1');
+
+            expect(mockCollections.chunks.find).toHaveBeenCalledWith({
+                selector: { documentId: 'doc1' },
+                sort: [{ chunkIndex: 'asc' }]
+            });
+            expect(result).toEqual(mockChunks);
+        });
+
+        test('removes chunks for document', async () => {
+            const mockChunks = [
+                { id: 'chunk1', remove: jest.fn() },
+                { id: 'chunk2', remove: jest.fn() }
+            ];
+            mockCollections.chunks.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockChunks)
+            });
+
+            await storage.removeChunksForDocument('doc1');
+
+            expect(mockChunks[0].remove).toHaveBeenCalled();
+            expect(mockChunks[1].remove).toHaveBeenCalled();
+        });
+    });
+
+    describe('embedding operations', () => {
+        test('stores embeddings in bulk', async () => {
+            const embeddings = [
+                { id: 'emb1', chunkId: 'chunk1', embedding: [0.1, 0.2, 0.3] },
+                { id: 'emb2', chunkId: 'chunk2', embedding: [0.4, 0.5, 0.6] }
+            ];
+
+            await storage.storeEmbeddings(embeddings);
+
+            expect(mockCollections.embeddings.bulkUpsert).toHaveBeenCalledWith(embeddings);
+        });
+
+        test('gets embedding by chunk ID', async () => {
+            const mockEmbedding = { id: 'emb1', chunkId: 'chunk1', embedding: [0.1, 0.2] };
+            mockCollections.embeddings.findOne.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockEmbedding)
+            });
+
+            const result = await storage.getEmbedding('chunk1');
+
+            expect(mockCollections.embeddings.findOne).toHaveBeenCalledWith({
+                selector: { chunkId: 'chunk1' }
+            });
+            expect(result).toEqual(mockEmbedding);
+        });
+
+        test('gets all embeddings for similarity search', async () => {
+            const mockEmbeddings = [
+                { id: 'emb1', chunkId: 'chunk1', embedding: [0.1, 0.2] },
+                { id: 'emb2', chunkId: 'chunk2', embedding: [0.3, 0.4] }
+            ];
+            mockCollections.embeddings.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockEmbeddings)
+            });
+
+            const result = await storage.getAllEmbeddings();
+
+            expect(mockCollections.embeddings.find).toHaveBeenCalledWith();
+            expect(result).toEqual(mockEmbeddings);
+        });
+
+        test('removes embeddings for document', async () => {
+            // Mock getting chunks first
+            const mockChunks = [
+                { id: 'chunk1' },
+                { id: 'chunk2' }
+            ];
+            mockCollections.chunks.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockChunks)
+            });
+
+            // Mock getting embeddings for those chunks
+            const mockEmbeddings = [
+                { id: 'emb1', chunkId: 'chunk1', remove: jest.fn() },
+                { id: 'emb2', chunkId: 'chunk2', remove: jest.fn() }
+            ];
+            mockCollections.embeddings.find.mockReturnValue({
+                exec: jest.fn().mockResolvedValue(mockEmbeddings)
+            });
+
+            await storage.removeEmbeddingsForDocument('doc1');
+
+            expect(mockEmbeddings[0].remove).toHaveBeenCalled();
+            expect(mockEmbeddings[1].remove).toHaveBeenCalled();
+        });
+    });
+
+    describe('schema validation', () => {
+        test('document schema has required fields with correct constraints', () => {
+            const schema = storage.getDocumentSchema();
+
+            expect(schema.properties.id).toEqual({
+                type: 'string',
+                maxLength: 128
+            });
+            expect(schema.properties.filePath).toEqual({
+                type: 'string',
+                maxLength: 1000
+            });
+            expect(schema.properties.modifiedDate).toEqual({
+                type: 'string',
+                format: 'date-time',
+                maxLength: 30
+            });
+            expect(schema.properties.tags).toEqual({
+                type: 'array',
+                items: { type: 'string', maxLength: 100 }
+            });
+
+            // Check indexes - tags should not be included
+            expect(schema.indexes).toEqual(['filePath', 'modifiedDate']);
+            expect(schema.indexes).not.toContain('tags');
+        });
+
+        test('chunks schema has number field with multipleOf constraint', () => {
+            const schema = storage.getChunksSchema();
+
+            expect(schema.properties.chunkIndex).toEqual({
+                type: 'number',
+                multipleOf: 1,
+                minimum: 0,
+                maximum: 10000
+            });
+            expect(schema.indexes).toContain('chunkIndex');
+        });
+
+        test('all schemas have required metadata', () => {
+            const docSchema = storage.getDocumentSchema();
+            const chunkSchema = storage.getChunksSchema();
+            const embeddingSchema = storage.getEmbeddingSchema();
+
+            [docSchema, chunkSchema, embeddingSchema].forEach(schema => {
+                expect(schema.version).toBe(0);
+                expect(schema.type).toBe('object');
+                expect(schema.primaryKey).toBe('id');
+            });
+        });
+    });
+
+    describe('error handling', () => {
+        test('handles database connection errors gracefully', async () => {
+            const { createRxDatabase } = require('rxdb');
+            createRxDatabase.mockRejectedValueOnce(new Error('Database connection failed'));
+
+            const failingStorage = new IndexStorage('failing-vault');
+
+            await expect(failingStorage.initialize()).rejects.toThrow('Database connection failed');
+        });
+
+        test('handles collection operation errors', async () => {
+            mockCollections.documents.upsert.mockRejectedValueOnce(new Error('Insert failed'));
+
+            const document = { id: 'doc1', filePath: '/test', modifiedDate: new Date().toISOString() };
+
+            await expect(storage.storeDocument(document)).rejects.toThrow('Insert failed');
+        });
+    });
+
+    describe('cleanup and resource management', () => {
+        test('closes database connection properly', async () => {
+            const mockRemove = jest.fn();
+            storage.db = { remove: mockRemove };
+
+            await storage.close();
+
+            expect(mockRemove).toHaveBeenCalled();
+        });
+
+        test('handles close when database is not initialized', async () => {
+            const uninitializedStorage = new IndexStorage('test');
+
+            // Should not throw
+            await expect(uninitializedStorage.close()).resolves.not.toThrow();
+        });
+    });
+});

@@ -1,0 +1,384 @@
+// Unit tests for EmbeddingEngine service
+// Tests embedding generation, caching, and web-only configuration
+
+import { EmbeddingEngine } from '../../src/services/EmbeddingEngine';
+
+// Mock transformers.js directly to avoid circular dependency
+jest.mock('@xenova/transformers', () => {
+    // Define mocks inline to avoid circular dependency
+    const mockPipeline = jest.fn().mockImplementation(async (task, model, options = {}) => {
+        return jest.fn().mockImplementation(async (text, pipelineOptions = {}) => {
+            if (task === 'feature-extraction') {
+                const mockEmbedding = new Float32Array(384);
+                const hash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                for (let i = 0; i < 384; i++) {
+                    mockEmbedding[i] = Math.sin((hash + i) / 100) * 0.1;
+                }
+                return {
+                    data: mockEmbedding,
+                    dims: [1, 384]
+                };
+            }
+            return { data: new Float32Array([0.1, 0.2, 0.3]), dims: [1, 3] };
+        });
+    });
+
+    return {
+        pipeline: mockPipeline,
+        env: {
+            allowLocalModels: true,
+            allowRemoteModels: false,
+            useBrowserCache: true,
+            backends: { onnx: false, tfjs: false }
+        },
+        createMockPipeline: (task = 'feature-extraction') => {
+            return jest.fn().mockImplementation(async (text, options = {}) => {
+                if (task === 'feature-extraction') {
+                    const mockEmbedding = new Float32Array(384);
+                    const hash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    for (let i = 0; i < 384; i++) {
+                        mockEmbedding[i] = Math.sin((hash + i) / 100) * 0.1;
+                    }
+                    return { data: mockEmbedding, dims: [1, 384] };
+                }
+                return { data: new Float32Array([0, 1, 2]), dims: [1, 3] };
+            });
+        },
+        resetMocks: () => {
+            jest.clearAllMocks();
+            mockPipeline.mockClear();
+        }
+    };
+});
+
+describe('EmbeddingEngine', () => {
+    let engine;
+    let mockPipeline;
+
+    beforeEach(async () => {
+        jest.clearAllMocks();
+
+        // Get the mock pipeline from the mocks
+        const { pipeline, createMockPipeline, resetMocks } = require('@xenova/transformers');
+        resetMocks();
+
+        mockPipeline = createMockPipeline('feature-extraction');
+        pipeline.mockResolvedValue(mockPipeline);
+
+        engine = new EmbeddingEngine();
+    });
+
+    afterEach(async () => {
+        if (engine) {
+            await engine.cleanup();
+        }
+    });
+
+    describe('initialization', () => {
+        test('initializes with default model configuration', () => {
+            expect(engine.modelName).toBe('Xenova/all-MiniLM-L6-v2');
+            expect(engine.dimensions).toBe(384);
+        });
+
+        test('accepts custom model configuration', () => {
+            const customEngine = new EmbeddingEngine({
+                modelName: 'custom/model',
+                dimensions: 512
+            });
+
+            expect(customEngine.modelName).toBe('custom/model');
+            expect(customEngine.dimensions).toBe(512);
+        });
+
+        test('initializes pipeline lazily on first use', async () => {
+            const { pipeline } = require('@xenova/transformers');
+
+            // Pipeline should not be called until first embedding generation
+            expect(pipeline).not.toHaveBeenCalled();
+
+            await engine.generateEmbedding('test text');
+
+            expect(pipeline).toHaveBeenCalledWith('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                quantized: true,
+                local_files_only: true,
+                cache_dir: expect.stringMatching(/models$/)
+            });
+        });
+
+        test('configures web-only environment on initialization', async () => {
+            const { env } = require('@xenova/transformers');
+
+            await engine.generateEmbedding('test');
+
+            expect(env.allowLocalModels).toBe(true);
+            expect(env.allowRemoteModels).toBe(false);
+            expect(env.useBrowserCache).toBe(true);
+        });
+    });
+
+    describe('embedding generation', () => {
+        test('generates embedding for text input', async () => {
+            const text = 'This is a test sentence.';
+            const embedding = await engine.generateEmbedding(text);
+
+            expect(embedding).toBeInstanceOf(Float32Array);
+            expect(embedding.length).toBe(384);
+            expect(mockPipeline).toHaveBeenCalledWith(text, expect.any(Object));
+        });
+
+        test('normalizes embeddings by default', async () => {
+            const embedding = await engine.generateEmbedding('test text');
+
+            // Check that embedding values are reasonable (between -1 and 1 after normalization)
+            const values = Array.from(embedding);
+            expect(Math.max(...values)).toBeLessThanOrEqual(1);
+            expect(Math.min(...values)).toBeGreaterThanOrEqual(-1);
+        });
+
+        test('generates different embeddings for different texts', async () => {
+            const embedding1 = await engine.generateEmbedding('first text');
+            const embedding2 = await engine.generateEmbedding('second text');
+
+            expect(embedding1).not.toEqual(embedding2);
+        });
+
+        test('generates consistent embeddings for same text', async () => {
+            const text = 'consistent text';
+            const embedding1 = await engine.generateEmbedding(text);
+            const embedding2 = await engine.generateEmbedding(text);
+
+            expect(embedding1).toEqual(embedding2);
+        });
+
+        test('handles empty text input', async () => {
+            const embedding = await engine.generateEmbedding('');
+
+            expect(embedding).toBeInstanceOf(Float32Array);
+            expect(embedding.length).toBe(384);
+        });
+
+        test('handles very long text input', async () => {
+            const longText = 'word '.repeat(1000);
+            const embedding = await engine.generateEmbedding(longText);
+
+            expect(embedding).toBeInstanceOf(Float32Array);
+            expect(embedding.length).toBe(384);
+        });
+
+        test('handles unicode and special characters', async () => {
+            const unicodeText = 'Hello 世界! 🚀 Testing unicode & symbols.';
+            const embedding = await engine.generateEmbedding(unicodeText);
+
+            expect(embedding).toBeInstanceOf(Float32Array);
+            expect(embedding.length).toBe(384);
+        });
+    });
+
+    describe('batch processing', () => {
+        test('generates embeddings for batch of texts', async () => {
+            const texts = ['first text', 'second text', 'third text'];
+            const embeddings = await engine.generateEmbeddings(texts);
+
+            expect(embeddings).toHaveLength(3);
+            embeddings.forEach(embedding => {
+                expect(embedding).toBeInstanceOf(Float32Array);
+                expect(embedding.length).toBe(384);
+            });
+        });
+
+        test('batch processing is more efficient than individual calls', async () => {
+            const texts = ['text1', 'text2', 'text3'];
+
+            // Measure individual calls
+            const start1 = Date.now();
+            for (const text of texts) {
+                await engine.generateEmbedding(text);
+            }
+            const individual = Date.now() - start1;
+
+            // Reset for batch call
+            jest.clearAllMocks();
+
+            // Measure batch call
+            const start2 = Date.now();
+            await engine.generateEmbeddings(texts);
+            const batch = Date.now() - start2;
+
+            // Batch should generally be faster (though with mocks, times may be similar)
+            expect(batch).toBeLessThanOrEqual(individual * 1.5); // Allow some variance
+        });
+
+        test('handles empty batch', async () => {
+            const embeddings = await engine.generateEmbeddings([]);
+
+            expect(embeddings).toEqual([]);
+        });
+    });
+
+    describe('caching', () => {
+        test('caches embeddings to avoid recomputation', async () => {
+            const text = 'cacheable text';
+
+            // First call should generate embedding
+            await engine.generateEmbedding(text);
+            expect(mockPipeline).toHaveBeenCalledTimes(1);
+
+            // Second call should use cache
+            await engine.generateEmbedding(text);
+            expect(mockPipeline).toHaveBeenCalledTimes(1); // No additional calls
+        });
+
+        test('cache respects text variations', async () => {
+            await engine.generateEmbedding('text1');
+            await engine.generateEmbedding('text2');
+            await engine.generateEmbedding('text1'); // Should hit cache
+
+            expect(mockPipeline).toHaveBeenCalledTimes(2);
+        });
+
+        test('clears cache when requested', async () => {
+            const text = 'text to cache';
+
+            // Generate and cache
+            await engine.generateEmbedding(text);
+            expect(mockPipeline).toHaveBeenCalledTimes(1);
+
+            // Clear cache
+            engine.clearCache();
+
+            // Should regenerate
+            await engine.generateEmbedding(text);
+            expect(mockPipeline).toHaveBeenCalledTimes(2);
+        });
+
+        test('cache has reasonable size limits', async () => {
+            // Generate many embeddings to test cache size
+            const promises = [];
+            for (let i = 0; i < 1000; i++) {
+                promises.push(engine.generateEmbedding(`text ${i}`));
+            }
+            await Promise.all(promises);
+
+            // Cache should be working but bounded
+            expect(engine.getCacheSize()).toBeLessThan(1000);
+        });
+    });
+
+    describe('error handling', () => {
+        test('handles model loading errors gracefully', async () => {
+            const { pipeline } = require('@xenova/transformers');
+            pipeline.mockRejectedValueOnce(new Error('Model not found'));
+
+            await expect(engine.generateEmbedding('test'))
+                .rejects.toThrow('Model not found');
+        });
+
+        test('handles pipeline execution errors', async () => {
+            const { createMockPipeline } = require('@xenova/transformers');
+            const failingPipeline = jest.fn().mockRejectedValue(new Error('Pipeline failed'));
+
+            const { pipeline } = require('@xenova/transformers');
+            pipeline.mockResolvedValueOnce(failingPipeline);
+
+            await expect(engine.generateEmbedding('test'))
+                .rejects.toThrow('Pipeline failed');
+        });
+
+        test('handles invalid input gracefully', async () => {
+            // Test null/undefined inputs
+            await expect(engine.generateEmbedding(null)).rejects.toThrow();
+            await expect(engine.generateEmbedding(undefined)).rejects.toThrow();
+        });
+    });
+
+    describe('configuration and model paths', () => {
+        test('uses correct model path configuration', async () => {
+            await engine.generateEmbedding('test');
+
+            const { pipeline } = require('@xenova/transformers');
+            const options = pipeline.mock.calls[0][2];
+
+            expect(options.local_files_only).toBe(true);
+            expect(options.cache_dir).toMatch(/models$/);
+            expect(options.quantized).toBe(true);
+        });
+
+        test('disables remote model loading', async () => {
+            const { env } = require('@xenova/transformers');
+
+            await engine.generateEmbedding('test');
+
+            expect(env.allowRemoteModels).toBe(false);
+            expect(env.allowLocalModels).toBe(true);
+        });
+
+        test('configures browser-compatible backends', async () => {
+            const { env } = require('@xenova/transformers');
+
+            await engine.generateEmbedding('test');
+
+            expect(env.useBrowserCache).toBe(true);
+            expect(env.backends?.onnx).toBe(false);
+            expect(env.backends?.tfjs).toBe(false);
+        });
+    });
+
+    describe('similarity calculations', () => {
+        test('calculates cosine similarity between embeddings', () => {
+            const embedding1 = new Float32Array([1, 0, 0, 0]);
+            const embedding2 = new Float32Array([0, 1, 0, 0]);
+            const embedding3 = new Float32Array([1, 0, 0, 0]);
+
+            const similarity1 = engine.calculateSimilarity(embedding1, embedding2);
+            const similarity2 = engine.calculateSimilarity(embedding1, embedding3);
+
+            expect(similarity1).toBe(0); // Orthogonal vectors
+            expect(similarity2).toBe(1); // Identical vectors
+        });
+
+        test('similarity calculation is symmetric', () => {
+            const embedding1 = new Float32Array([0.5, 0.5, 0.5, 0.5]);
+            const embedding2 = new Float32Array([0.3, 0.7, 0.2, 0.8]);
+
+            const sim1 = engine.calculateSimilarity(embedding1, embedding2);
+            const sim2 = engine.calculateSimilarity(embedding2, embedding1);
+
+            expect(Math.abs(sim1 - sim2)).toBeLessThan(0.0001);
+        });
+
+        test('handles zero vectors in similarity calculation', () => {
+            const zero = new Float32Array([0, 0, 0, 0]);
+            const normal = new Float32Array([1, 1, 1, 1]);
+
+            const similarity = engine.calculateSimilarity(zero, normal);
+
+            expect(similarity).toBe(0);
+        });
+    });
+
+    describe('resource management', () => {
+        test('cleans up resources properly', async () => {
+            await engine.generateEmbedding('test');
+
+            // Ensure cleanup doesn't throw
+            await expect(engine.cleanup()).resolves.not.toThrow();
+        });
+
+        test('handles multiple cleanup calls', async () => {
+            await engine.cleanup();
+            await engine.cleanup();
+
+            // Multiple cleanup calls should be safe
+            expect(true).toBe(true);
+        });
+
+        test('can reinitialize after cleanup', async () => {
+            await engine.generateEmbedding('test1');
+            await engine.cleanup();
+
+            // Should be able to generate embeddings again
+            const embedding = await engine.generateEmbedding('test2');
+            expect(embedding).toBeInstanceOf(Float32Array);
+        });
+    });
+});

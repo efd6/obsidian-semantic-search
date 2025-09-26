@@ -1,0 +1,107 @@
+/* Semantic Search Plugin Styles */
+
+.semantic-search-modal {
+    --modal-width: 80vw;
+    --modal-height: 80vh;
+}
+
+.search-input-container {
+    margin-bottom: 1rem;
+}
+
+.search-modal-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: 1rem;
+}
+
+.search-modal-results {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.search-result {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.search-result:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--background-modifier-border-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-result.selected {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+}
+
+.result-title {
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+    color: var(--text-normal);
+}
+
+.result-path {
+    font-size: 0.8em;
+    color: var(--text-faint);
+    margin-bottom: 0.5rem;
+}
+
+.result-snippet {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Search highlight styles */
+.search-highlight {
+    padding: 0.1em 0.2em;
+    border-radius: 2px;
+    font-weight: 600;
+}
+
+.search-highlight-exact {
+    background: var(--text-highlight-bg);
+    color: var(--text-normal);
+}
+
+.search-highlight-semantic {
+    background: var(--interactive-accent-hover);
+    color: var(--text-on-accent);
+}
+
+.search-highlight-fuzzy {
+    background: var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.no-results {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.semantic-search-loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.semantic-search-status-bar {
+    font-size: 0.8em;
+    color: var(--text-faint);
+    padding: 0.5rem;
+    border-top: 1px solid var(--background-modifier-border);
+}

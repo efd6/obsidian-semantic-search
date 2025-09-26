@@ -1,0 +1,11 @@
+{
+	"id": "semantic-search-plugin",
+	"name": "Semantic Search Plugin",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "AI-powered semantic search across your entire Obsidian vault with offline operation and real-time updates.",
+	"author": "Upstart Engineering",
+	"authorUrl": "https://github.com/teamupstart",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}
