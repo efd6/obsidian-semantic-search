@@ -1,11 +1,11 @@
 # Obsidian Semantic Search Plugin
 
-An advanced semantic search plugin for Obsidian that enables AI-powered content discovery using offline embedding models. Find notes by meaning, not just keywords.
+An advanced semantic search plugin for Obsidian that enables AI-powered content discovery using embedding models. Find notes by meaning, not just keywords.
 
 ## Features
 
 - **🧠 Semantic Search**: Find content by meaning using state-of-the-art embedding models
-- **📱 Offline Operation**: Runs entirely offline with pre-bundled AI models
+- **📱 Local Inference**: Embedding model is fetched once from Google's CDN and cached locally; all inference runs on-device
 - **⚡ Real-time Updates**: Search reflects file changes within 30 seconds
 - **🎯 Smart Chunking**: Intelligent text segmentation for better search granularity
 - **🏷️ Tag Integration**: Full support for Obsidian tags and frontmatter
@@ -61,7 +61,7 @@ Access settings via Settings → Semantic Search Plugin:
 - **SemanticSearchEngine**: Handles embedding generation and similarity search
 - **FileWatcher**: Monitors file changes for real-time updates
 - **IndexStorage**: RxDB-based local storage with horizontal partitioning
-- **EmbeddingEngine**: Transformers.js integration for offline AI models
+- **EmbeddingEngine**: TensorFlow.js Universal Sentence Encoder for on-device embedding
 
 ### Data Flow
 
@@ -71,11 +71,11 @@ Access settings via Settings → Semantic Search Plugin:
 
 ### AI Model
 
-Uses `all-MiniLM-L6-v2` quantized model (384 dimensions):
-- **Size**: ~23MB bundled with plugin
+Uses TensorFlow.js [Universal Sentence Encoder](https://tfhub.dev/google/universal-sentence-encoder/4) (512 dimensions):
+- **Loading**: Downloaded from Google's TFHub CDN on first use, then cached in browser storage
 - **Language**: Optimized for English text
 - **Performance**: ~100ms per embedding on modern hardware
-- **Quality**: State-of-the-art sentence similarity
+- **No API key required**: No cloud service or running server needed
 
 ## Performance
 
@@ -99,7 +99,7 @@ Uses `all-MiniLM-L6-v2` quantized model (384 dimensions):
 ### Prerequisites
 
 ```bash
-node --version  # v16+ required
+node --version  # v18+ required
 npm --version   # v7+ required
 ```
 
@@ -232,7 +232,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Changelog
 
 ### v1.0.0 (Initial Release)
-- Offline semantic search using Transformers.js
+- Semantic search using TensorFlow.js Universal Sentence Encoder
 - Real-time index updates within 30 seconds
 - Support for 100k+ line vaults
 - Multiple search interfaces (view, modal, status bar)
@@ -241,7 +241,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- [Transformers.js](https://huggingface.co/docs/transformers.js) for offline AI models
+- [TensorFlow.js](https://www.tensorflow.org/js) and the [Universal Sentence Encoder](https://tfhub.dev/google/universal-sentence-encoder/4) for on-device embeddings
 - [RxDB](https://rxdb.info/) for reactive database functionality
 - [Obsidian](https://obsidian.md/) for the excellent plugin API
-- Sentence Transformers team for the embedding model
