@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { statSync, existsSync, readdirSync } from 'fs';
+import { statSync, existsSync, readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -95,23 +95,6 @@ const analyzeBundleSize = () => {
     checkFile(join(PROJECT_ROOT, 'manifest.json'), 'Plugin Manifest');
     checkFile(join(PROJECT_ROOT, 'styles.css'), 'Plugin Styles (optional)');
 
-    // AI Models directory
-    const modelsDir = checkDirectory(join(PROJECT_ROOT, 'models'), 'AI Models', 50 * 1024 * 1024); // 50MB limit
-    totalSize += modelsDir.size;
-
-    if (modelsDir.exists) {
-        console.log('\n📁 Model Details:');
-        const modelFiles = [
-            'all-MiniLM-L6-v2/config.json',
-            'all-MiniLM-L6-v2/tokenizer.json',
-            'all-MiniLM-L6-v2/onnx/model_quantized.onnx'
-        ];
-
-        for (const file of modelFiles) {
-            checkFile(join(PROJECT_ROOT, 'models', file), `  ${file}`);
-        }
-    }
-
     // Distribution directory (if exists)
     if (existsSync(join(PROJECT_ROOT, 'dist'))) {
         const distSize = checkDirectory(join(PROJECT_ROOT, 'dist'), 'Distribution Files');
@@ -123,57 +106,18 @@ const analyzeBundleSize = () => {
     return { totalSize, issues };
 };
 
-const checkOfflineCapability = () => {
-    console.log('🔌 Offline Capability Check');
-    console.log('===========================\n');
+const checkBundledDependencies = () => {
+    console.log('📦 Bundled Dependencies Check');
+    console.log('=============================\n');
 
     const checks = [];
 
-    // Check for AI models
-    const modelPath = join(PROJECT_ROOT, 'models', 'all-MiniLM-L6-v2');
-    if (existsSync(modelPath)) {
-        console.log('✅ AI models present for offline operation');
-
-        // Check critical model files
-        const criticalFiles = [
-            'config.json',
-            'tokenizer.json',
-            'onnx/model_quantized.onnx'
-        ];
-
-        let modelComplete = true;
-        for (const file of criticalFiles) {
-            const filePath = join(modelPath, file);
-            if (existsSync(filePath)) {
-                console.log(`   ✅ ${file}`);
-            } else {
-                console.log(`   ❌ Missing: ${file}`);
-                modelComplete = false;
-            }
-        }
-
-        checks.push({
-            name: 'AI Model Completeness',
-            passed: modelComplete,
-            message: modelComplete ? 'All required model files present' : 'Missing critical model files'
-        });
-    } else {
-        console.log('❌ AI models missing - run "npm run download-models"');
-        checks.push({
-            name: 'AI Models',
-            passed: false,
-            message: 'Models not downloaded'
-        });
-    }
-
-    // Check bundle includes dependencies
     const mainJsPath = join(PROJECT_ROOT, 'main.js');
     if (existsSync(mainJsPath)) {
-        const bundleContent = require('fs').readFileSync(mainJsPath, 'utf8');
+        const bundleContent = readFileSync(mainJsPath, 'utf8');
 
-        // Check for critical dependencies
         const dependencies = [
-            { name: 'Transformers.js', pattern: /transformers|@xenova/ },
+            { name: 'TensorFlow.js', pattern: /tensorflow|tfjs/ },
             { name: 'RxDB', pattern: /rxdb|RxDB/ },
             { name: 'IndexedDB', pattern: /indexedDB|idb/ }
         ];
@@ -200,7 +144,7 @@ const checkOfflineCapability = () => {
     return checks;
 };
 
-const generateReport = (bundleAnalysis, offlineChecks) => {
+const generateReport = (bundleAnalysis, depChecks) => {
     console.log('📋 Summary Report');
     console.log('=================\n');
 
@@ -213,10 +157,6 @@ const generateReport = (bundleAnalysis, offlineChecks) => {
         console.log('❌ Bundle size is too large - optimization needed');
     }
 
-    // Offline capability assessment
-    const offlineReady = offlineChecks.every(check => check.passed);
-    console.log(`${offlineReady ? '✅' : '❌'} Offline operation: ${offlineReady ? 'Ready' : 'Not ready'}`);
-
     // Issues summary
     if (bundleAnalysis.issues.length > 0) {
         console.log('\n⚠️  Issues found:');
@@ -225,7 +165,7 @@ const generateReport = (bundleAnalysis, offlineChecks) => {
         });
     }
 
-    const failedChecks = offlineChecks.filter(check => !check.passed);
+    const failedChecks = depChecks.filter(check => !check.passed);
     if (failedChecks.length > 0) {
         console.log('\n❌ Failed checks:');
         failedChecks.forEach((check, i) => {
@@ -234,10 +174,10 @@ const generateReport = (bundleAnalysis, offlineChecks) => {
     }
 
     if (bundleAnalysis.issues.length === 0 && failedChecks.length === 0) {
-        console.log('\n🎉 All checks passed! Plugin is ready for offline operation.');
+        console.log('\n🎉 All checks passed!');
         return true;
     } else {
-        console.log('\n🔧 Action required to complete offline preparation.');
+        console.log('\n🔧 Action required.');
         return false;
     }
 };
@@ -248,9 +188,9 @@ const main = () => {
 
     const bundleAnalysis = analyzeBundleSize();
     console.log('');
-    const offlineChecks = checkOfflineCapability();
+    const depChecks = checkBundledDependencies();
     console.log('');
-    const success = generateReport(bundleAnalysis, offlineChecks);
+    const success = generateReport(bundleAnalysis, depChecks);
 
     process.exit(success ? 0 : 1);
 };

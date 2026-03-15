@@ -35,21 +35,6 @@ test-model-loading.js
 test-rxdb-schemas.js
 
 # =======================================================================
-# AI MODELS & LARGE BINARY FILES
-# =======================================================================
-
-# AI Models (download with npm run download-models)
-/models/
-*.bin
-*.onnx
-*.wasm
-*.safetensors
-
-# Model cache directories
-.transformers-cache/
-.huggingface/
-
-# =======================================================================
 # NODE.JS & NPM
 # =======================================================================
 
