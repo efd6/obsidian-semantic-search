@@ -67,7 +67,6 @@ web_modules/
 .yarn-error.log*
 
 # Package-lock conflicts
-package-lock.json
 yarn.lock
 
 # Runtime data
