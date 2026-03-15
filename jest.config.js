@@ -2,7 +2,7 @@
 const baseConfig = {
 	preset: 'ts-jest',
 	testEnvironment: 'jsdom',
-	roots: ['<rootDir>/__tests__'],
+	roots: ['<rootDir>/tests'],
 	transform: {
 		'^.+\\.ts$': ['ts-jest', { useESM: true }],
 		'^.+\\.js$': ['ts-jest', { useESM: true }]
@@ -13,11 +13,11 @@ const baseConfig = {
 	],
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/src/$1',
-		'^obsidian$': '<rootDir>/__tests__/setup/ObsidianMocks.js',
+		'^obsidian$': '<rootDir>/tests/setup/ObsidianMocks.js',
 		'^onnxruntime-web$': '<rootDir>/node_modules/onnxruntime-web/dist/ort.wasm-core.min.js'
 	},
 	setupFilesAfterEnv: [
-		'<rootDir>/__tests__/setup/jest-setup.js'
+		'<rootDir>/tests/setup/jest-setup.js'
 	],
 	moduleFileExtensions: ['ts', 'js', 'json'],
 	extensionsToTreatAsEsm: ['.ts'],
@@ -30,17 +30,17 @@ export default {
 		{
 			...baseConfig,
 			displayName: 'unit',
-			testMatch: ['<rootDir>/__tests__/unit/**/*.test.(ts|js)']
+			testMatch: ['<rootDir>/tests/unit/**/*.test.(ts|js)']
 		},
 		{
 			...baseConfig,
 			displayName: 'contract',
-			testMatch: ['<rootDir>/__tests__/contract/**/*.test.(ts|js)']
+			testMatch: ['<rootDir>/tests/contract/**/*.test.(ts|js)']
 		},
 		{
 			...baseConfig,
 			displayName: 'integration',
-			testMatch: ['<rootDir>/__tests__/integration/**/*.test.(ts|js)']
+			testMatch: ['<rootDir>/tests/integration/**/*.test.(ts|js)']
 		}
 	]
 };
