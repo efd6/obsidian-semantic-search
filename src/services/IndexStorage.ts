@@ -53,7 +53,7 @@ export class IndexStorage implements IIndexStorage {
   }
 
   private getDatabaseName(vaultPath: string): string {
-    return `obsidian_search_${BrowserCrypto.md5(vaultPath)}`;
+    return `obsidian_search_${BrowserCrypto.simpleHash(vaultPath)}`;
   }
 
   private async createCollections(): Promise<void> {
@@ -276,7 +276,7 @@ export class IndexStorage implements IIndexStorage {
   }
 
   private getChunkPartition(chunkId: string): number {
-    const hash = BrowserCrypto.md5(chunkId);
+    const hash = BrowserCrypto.simpleHash(chunkId);
     return Number.parseInt(hash.slice(0, 2), 16) % 10;
   }
 

@@ -11,27 +11,23 @@ export const BrowserCrypto = {
   },
 
   /**
-   * Generate MD5 hash using a simple implementation
-   * Note: This is a basic MD5 implementation for browser compatibility
+   * Synchronous non-cryptographic hash (DJB2 variant), returning 32 hex chars.
+   * Not MD5 — the output has only 32 bits of entropy, repeated to fill the width.
    */
-  md5(data: string): string {
-    // Simple MD5 implementation for browser
-    // This is a basic version - for production, consider using a more robust library
+  simpleHash(data: string): string {
     let hash = 0;
     for (let i = 0; i < data.length; i++) {
       const char = data.codePointAt(i) ?? 0;
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash;
     }
-    // Convert to positive hex string
     const hexHash = (hash >>> 0).toString(16).padStart(8, '0');
-    // Pad to 32 characters to simulate MD5 length
     return (hexHash + hexHash + hexHash + hexHash).slice(0, 32);
   },
 
   /**
-   * Synchronous hash function for simple use cases
-   * Uses a fast non-cryptographic hash
+   * Synchronous non-cryptographic hash (DJB2 variant), returning 8 hex chars.
+   * Same algorithm as simpleHash but shorter output.
    */
   fastHash(data: string): string {
     let hash = 0;
@@ -40,25 +36,24 @@ export const BrowserCrypto = {
     for (let i = 0; i < data.length; i++) {
       const char = data.codePointAt(i) ?? 0;
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash;
     }
 
-    // Return as 8-character hex string
     return Math.abs(hash).toString(16).padStart(8, '0');
   },
 };
 
-// Legacy compatibility functions
+// Synchronous hash wrapper. Neither branch uses the real algorithm named —
+// 'sha256' returns an 8-char DJB2 hash, 'simple' returns a 32-char DJB2 hash.
+// For real SHA-256, use BrowserCrypto.sha256() (async).
 export function createHash(algorithm: string): { update: (data: string) => { digest: (encoding: 'hex') => string } } {
   return {
     update: (data: string): { digest: (encoding: 'hex') => string } => ({
       digest: (encoding: 'hex'): string => { // eslint-disable-line @typescript-eslint/no-unused-vars -- Legacy API compatibility requires parameter
         if (algorithm === 'sha256') {
-          // For synchronous use, fall back to fast hash
-          // Async version should use BrowserCrypto.sha256()
           return BrowserCrypto.fastHash(data);
-        } else if (algorithm === 'md5') {
-          return BrowserCrypto.md5(data);
+        } else if (algorithm === 'simple') {
+          return BrowserCrypto.simpleHash(data);
         }
         throw new Error(`Unsupported hash algorithm: ${algorithm}`);
       }

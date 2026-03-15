@@ -63,7 +63,7 @@ export class Document implements IDocument {
 
   private calculateChecksum(): string {
     const data = `${this.content}${this.modifiedDate.getTime()}`;
-    return createHash('md5').update(data).digest('hex');
+    return createHash('simple').update(data).digest('hex');
   }
 
   public static extractTags(content: string): string[] {

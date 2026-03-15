@@ -44,31 +44,31 @@ describe('BrowserCrypto', () => {
         });
     });
 
-    describe('md5', () => {
-        test('generates consistent MD5 hash for same input', () => {
+    describe('simpleHash', () => {
+        test('generates consistent hash for same input', () => {
             const input = 'test string';
-            const hash1 = BrowserCrypto.md5(input);
-            const hash2 = BrowserCrypto.md5(input);
+            const hash1 = BrowserCrypto.simpleHash(input);
+            const hash2 = BrowserCrypto.simpleHash(input);
 
             expect(hash1).toBe(hash2);
-            expect(hash1).toMatch(/^[a-f0-9]{32}$/); // Should be 32 hex characters
+            expect(hash1).toMatch(/^[a-f0-9]{32}$/);
         });
 
         test('generates different hashes for different inputs', () => {
-            const hash1 = BrowserCrypto.md5('string1');
-            const hash2 = BrowserCrypto.md5('string2');
+            const hash1 = BrowserCrypto.simpleHash('string1');
+            const hash2 = BrowserCrypto.simpleHash('string2');
 
             expect(hash1).not.toBe(hash2);
         });
 
         test('handles empty string input', () => {
-            const hash = BrowserCrypto.md5('');
+            const hash = BrowserCrypto.simpleHash('');
 
             expect(hash).toMatch(/^[a-f0-9]{32}$/);
         });
 
         test('handles unicode characters', () => {
-            const hash = BrowserCrypto.md5('hello 世界 🚀');
+            const hash = BrowserCrypto.simpleHash('hello 世界 🚀');
 
             expect(hash).toMatch(/^[a-f0-9]{32}$/);
             expect(hash).toBeTruthy();
@@ -76,21 +76,21 @@ describe('BrowserCrypto', () => {
 
         test('handles large input strings', () => {
             const largeString = 'a'.repeat(10000);
-            const hash = BrowserCrypto.md5(largeString);
+            const hash = BrowserCrypto.simpleHash(largeString);
 
             expect(hash).toMatch(/^[a-f0-9]{32}$/);
         });
     });
 
     describe('hash consistency and uniqueness', () => {
-        test('SHA256 and MD5 produce different outputs for same input', async () => {
+        test('SHA256 and simpleHash produce different outputs for same input', async () => {
             const input = 'test';
             const sha256Hash = await BrowserCrypto.sha256(input);
-            const md5Hash = BrowserCrypto.md5(input);
+            const simple = BrowserCrypto.simpleHash(input);
 
-            expect(sha256Hash).not.toBe(md5Hash);
+            expect(sha256Hash).not.toBe(simple);
             expect(sha256Hash.length).toBe(64);
-            expect(md5Hash.length).toBe(32);
+            expect(simple.length).toBe(32);
         });
 
         test('hashes have good distribution - no obvious collisions in sample', async () => {
@@ -100,10 +100,10 @@ describe('BrowserCrypto', () => {
 
             for (const input of inputs) {
                 const sha256Hash = await BrowserCrypto.sha256(input);
-                const md5Hash = BrowserCrypto.md5(input);
+                const simple = BrowserCrypto.simpleHash(input);
 
                 sha256Hashes.add(sha256Hash);
-                md5Hashes.add(md5Hash);
+                md5Hashes.add(simple);
             }
 
             // All hashes should be unique
@@ -127,10 +127,8 @@ describe('BrowserCrypto', () => {
             crypto.subtle.digest = originalDigest;
         });
 
-        test('MD5 implementation works without Node.js crypto', () => {
-            // This test verifies our MD5 implementation doesn't rely on Node.js
-            // Since we're running in Jest with jsdom, this should work fine
-            const hash = BrowserCrypto.md5('browser test');
+        test('simpleHash works without Node.js crypto', () => {
+            const hash = BrowserCrypto.simpleHash('browser test');
             expect(hash).toMatch(/^[a-f0-9]{32}$/);
         });
     });

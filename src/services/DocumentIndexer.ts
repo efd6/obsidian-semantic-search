@@ -353,7 +353,7 @@ export class DocumentIndexer implements IDocumentIndexer {
   }
 
   private calculateChecksum(content: string, mtime: number): string {
-    return createHash('md5').update(content + mtime).digest('hex');
+    return createHash('simple').update(content + mtime).digest('hex');
   }
 
   private async calculateStats(): Promise<IndexStats> {
