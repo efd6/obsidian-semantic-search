@@ -16,10 +16,23 @@ An advanced semantic search plugin for Obsidian that enables AI-powered content 
 
 ### Installation
 
-1. Download the latest release from GitHub
-2. Extract to your Obsidian plugins folder: `VaultFolder/.obsidian/plugins/semantic-search/`
-3. Enable the plugin in Obsidian Settings → Community Plugins
-4. Wait for initial indexing to complete (shown in status bar)
+1. Clone the repository and install dependencies:
+   ```bash
+   git clone <repository-url>
+   cd obsidian-semantic-search
+   npm install
+   ```
+2. Build the plugin:
+   ```bash
+   npm run build
+   ```
+3. Copy the built output into your vault:
+   ```bash
+   mkdir -p /path/to/vault/.obsidian/plugins/obsidian-semantic-search
+   cp build/plugin/* /path/to/vault/.obsidian/plugins/obsidian-semantic-search/
+   ```
+4. Enable the plugin in Obsidian Settings → Community Plugins
+5. Wait for initial indexing to complete (shown in status bar)
 
 ### Basic Usage
 
