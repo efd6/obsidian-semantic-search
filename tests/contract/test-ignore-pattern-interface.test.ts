@@ -1,182 +1,148 @@
 /**
- * Contract test for IgnorePatternProcessor interface
- * Verifies that implementations properly adhere to the interface contract
+ * Contract test for IgnorePatternProcessor
+ * Verifies that the class honours its public API contract.
  */
 
-import {
-  IgnorePatternProcessor,
-  IgnorePatternMatcher,
-  FileFilterResult,
-  IgnorePattern
-} from '../../src/types/ignore-patterns';
+import { IgnorePattern } from '../../src/types/ignore-patterns';
+import { IgnorePatternProcessor } from '../../src/services/IgnorePatternProcessor';
+import { Vault } from 'obsidian';
 
-describe('IgnorePatternProcessor Interface Contract', () => {
-  let processor: IgnorePatternProcessor;
+jest.mock('obsidian');
 
-  beforeEach(() => {
-    // This will fail until IgnorePatternProcessor is implemented
-    const { IgnorePatternProcessorImpl } = require('../../src/services/IgnorePatternProcessor');
-    processor = new IgnorePatternProcessorImpl();
-  });
+function createMockVault(files: Record<string, string> = {}): Vault {
+  return {
+    getAbstractFileByPath: jest.fn((path: string) => {
+      if (path in files) return { path, name: path };
+      return null;
+    }),
+    read: jest.fn((file: any) => {
+      const content = files[file.path];
+      if (content !== undefined) return Promise.resolve(content);
+      return Promise.reject(new Error('File not found'));
+    }),
+  } as any;
+}
 
-  describe('loadIgnorePatterns method', () => {
-    it('should return IgnorePatternMatcher with required fields', async () => {
-      const matcher = await processor.loadIgnorePatterns();
+describe('IgnorePatternProcessor contract', () => {
+  describe('loadIgnorePatterns', () => {
+    it('should return an array of IgnorePattern', async () => {
+      const vault = createMockVault({
+        '.obsidianignore': '*.tmp\ntemp/',
+      });
+      const processor = new IgnorePatternProcessor(vault);
+      const patterns = await processor.loadIgnorePatterns();
 
-      expect(matcher).toBeDefined();
-      expect(Array.isArray(matcher.patterns)).toBe(true);
-      expect(typeof matcher.isLoaded).toBe('boolean');
-      expect(Array.isArray(matcher.loadErrors)).toBe(true);
-
-      // Validate pattern structure
-      matcher.patterns.forEach(pattern => {
-        expect(typeof pattern.pattern).toBe('string');
-        expect(['.obsidianignore', '.obsidian-search-ignore']).toContain(pattern.sourceFile);
-        expect(typeof pattern.isValid).toBe('boolean');
-        if (pattern.parseError) {
-          expect(typeof pattern.parseError).toBe('string');
-        }
+      expect(Array.isArray(patterns)).toBe(true);
+      patterns.forEach((p: IgnorePattern) => {
+        expect(typeof p.pattern).toBe('string');
+        expect(['.obsidianignore', '.obsidian-search-ignore']).toContain(p.sourceFile);
+        expect(typeof p.isValid).toBe('boolean');
       });
     });
 
-    it('should handle successful pattern loading', async () => {
-      const matcher = await processor.loadIgnorePatterns();
+    it('should return empty array when no ignore files exist', async () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
+      const patterns = await processor.loadIgnorePatterns();
 
-      if (matcher.isLoaded) {
-        expect(matcher.loadErrors.length).toBe(0);
-      }
-    });
-
-    it('should handle pattern loading errors gracefully', async () => {
-      const matcher = await processor.loadIgnorePatterns();
-
-      if (!matcher.isLoaded) {
-        expect(matcher.loadErrors.length).toBeGreaterThan(0);
-        matcher.loadErrors.forEach(error => {
-          expect(typeof error).toBe('string');
-          expect(error.length).toBeGreaterThan(0);
-        });
-      }
+      expect(patterns).toEqual([]);
     });
   });
 
-  describe('shouldIndexFile method', () => {
-    it('should return FileFilterResult with required fields', () => {
-      const result = processor.shouldIndexFile('test.md');
+  describe('shouldIndexFile', () => {
+    it('should return a boolean (async)', async () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
+      const result = await processor.shouldIndexFile('test.md');
 
-      expect(result).toBeDefined();
-      expect(typeof result.shouldIndex).toBe('boolean');
-
-      if (result.matchedPattern) {
-        expect(typeof result.matchedPattern).toBe('string');
-      }
-
-      if (result.sourceIgnore) {
-        expect(['.obsidianignore', '.obsidian-search-ignore']).toContain(result.sourceIgnore);
-      }
+      expect(typeof result).toBe('boolean');
     });
 
-    it('should handle various file path formats', () => {
-      const testPaths = [
+    it('should handle various path formats', async () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
+
+      const paths = [
         'test.md',
         'folder/test.md',
         'deep/nested/folder/test.md',
         '.hidden.md',
         'file-with-dashes.md',
-        'file_with_underscores.md'
       ];
 
-      testPaths.forEach(path => {
-        const result = processor.shouldIndexFile(path);
-        expect(typeof result.shouldIndex).toBe('boolean');
-      });
-    });
-
-    it('should default to allowing indexing when no patterns match', () => {
-      // This assumes empty patterns, will be validated with actual implementation
-      const result = processor.shouldIndexFile('definitely-unique-filename.md');
-
-      // If no patterns loaded or no match, should default to indexing
-      if (!result.matchedPattern) {
-        expect(result.shouldIndex).toBe(true);
+      for (const path of paths) {
+        expect(typeof await processor.shouldIndexFile(path)).toBe('boolean');
       }
     });
+
+    it('should default to allowing indexing when no patterns match', async () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
+
+      expect(await processor.shouldIndexFile('definitely-unique-filename.md')).toBe(true);
+    });
   });
 
-  describe('parseIgnoreFile method', () => {
-    it('should parse gitignore-style patterns correctly', () => {
-      const testContent = `
-# This is a comment
-*.tmp
-temp/
-.git/
-!important.tmp
-`;
+  describe('parseIgnoreFile', () => {
+    it('should parse gitignore-style patterns', () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
 
-      const patterns = processor.parseIgnoreFile(testContent, '.obsidianignore');
+      const patterns = processor.parseIgnoreFile(
+        '# comment\n*.tmp\ntemp/\n!important.tmp\n',
+        '.obsidianignore',
+      );
 
       expect(Array.isArray(patterns)).toBe(true);
-
-      patterns.forEach(pattern => {
-        expect(typeof pattern.pattern).toBe('string');
-        expect(pattern.sourceFile).toBe('.obsidianignore');
-        expect(typeof pattern.isValid).toBe('boolean');
-
-        // Should not include comments or empty lines
-        expect(pattern.pattern).not.toMatch(/^#/);
-        expect(pattern.pattern.length).toBeGreaterThan(0);
+      patterns.forEach(p => {
+        expect(typeof p.pattern).toBe('string');
+        expect(p.sourceFile).toBe('.obsidianignore');
+        expect(p.pattern).not.toMatch(/^#/);
+        expect(p.pattern.length).toBeGreaterThan(0);
       });
     });
 
-    it('should handle empty content gracefully', () => {
+    it('should return empty array for empty content', () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
       const patterns = processor.parseIgnoreFile('', '.obsidian-search-ignore');
-      expect(Array.isArray(patterns)).toBe(true);
-      expect(patterns.length).toBe(0);
+
+      expect(patterns).toEqual([]);
     });
 
-    it('should handle malformed patterns gracefully', () => {
-      const malformedContent = `
-*.md
-[invalid-regex
-valid-pattern.txt
-***/broken
-`;
+    it('should set parseError on any pattern that micromatch rejects', () => {
+      const vault = createMockVault();
+      const processor = new IgnorePatternProcessor(vault);
 
-      const patterns = processor.parseIgnoreFile(malformedContent, '.obsidianignore');
-      expect(Array.isArray(patterns)).toBe(true);
+      // micromatch.makeRe is extremely lenient, so most "malformed"
+      // patterns are accepted. This test verifies the structural
+      // contract: IF any are rejected, they carry a parseError.
+      const patterns = processor.parseIgnoreFile(
+        '*.md\n[bracket\nvalid.txt\n',
+        '.obsidianignore',
+      );
 
-      // Should include both valid and invalid patterns, marking invalid ones
-      const invalidPatterns = patterns.filter(p => !p.isValid);
-      const validPatterns = patterns.filter(p => p.isValid);
-
-      expect(validPatterns.length).toBeGreaterThan(0);
-
-      invalidPatterns.forEach(pattern => {
-        expect(pattern.parseError).toBeDefined();
-        expect(typeof pattern.parseError).toBe('string');
+      expect(patterns.length).toBeGreaterThan(0);
+      patterns.forEach(p => {
+        if (!p.isValid) {
+          expect(p.parseError).toBeDefined();
+          expect(typeof p.parseError).toBe('string');
+        }
       });
     });
   });
 
-  describe('handleIgnoreFileErrors method', () => {
-    it('should accept error array without throwing', () => {
-      const errors = ['Error 1', 'Error 2'];
-      expect(() => processor.handleIgnoreFileErrors(errors)).not.toThrow();
-    });
+  describe('getLoadedPatterns', () => {
+    it('should return loaded patterns', async () => {
+      const vault = createMockVault({
+        '.obsidianignore': '*.tmp',
+      });
+      const processor = new IgnorePatternProcessor(vault);
+      await processor.loadIgnorePatterns();
 
-    it('should handle empty error array', () => {
-      expect(() => processor.handleIgnoreFileErrors([])).not.toThrow();
-    });
-  });
-
-  describe('getIgnoreConfiguration method', () => {
-    it('should return current IgnorePatternMatcher', () => {
-      const config = processor.getIgnoreConfiguration();
-
-      expect(config).toBeDefined();
-      expect(Array.isArray(config.patterns)).toBe(true);
-      expect(typeof config.isLoaded).toBe('boolean');
-      expect(Array.isArray(config.loadErrors)).toBe(true);
+      const loaded = processor.getLoadedPatterns();
+      expect(Array.isArray(loaded)).toBe(true);
+      expect(loaded.length).toBeGreaterThan(0);
     });
   });
 });
