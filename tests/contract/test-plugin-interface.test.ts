@@ -169,18 +169,12 @@ describe('SemanticSearchPlugin Interface Contract', () => {
     });
 
     it('should fail when implementation is missing required methods', () => {
-      // TDD: This test should initially FAIL when real implementation is missing
-      // @ts-expect-error Testing incomplete implementation
       const incompleteImpl: Partial<SemanticSearchPlugin> = {
         onload: jest.fn(),
-        // Missing onunload, getStatus, rebuildIndex
       };
 
-      // This expectation will fail until real implementation exists
       expect(() => {
-        // Try to use incomplete implementation as full interface
         const _plugin: SemanticSearchPlugin = incompleteImpl as SemanticSearchPlugin;
-        // This should throw or fail type checking
         throw new Error('Implementation incomplete - missing required methods');
       }).toThrow('Implementation incomplete');
     });

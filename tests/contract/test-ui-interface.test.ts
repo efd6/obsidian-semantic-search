@@ -27,8 +27,7 @@ import {
 // Mock implementations that intentionally don't fully satisfy contracts (for TDD)
 class MockSearchUI implements SearchUI {
   createSearchView(): SearchView {
-    // Incomplete implementation - missing proper SearchView methods
-    return {} as SearchView;
+    return new MockSearchView();
   }
 
   displayResults(response: any): void {
@@ -224,14 +223,17 @@ describe('SearchUI Interface Contract', () => {
 
   describe('displayResults', () => {
     it('should accept SearchResponse parameter', () => {
-      const mockResponse = { results: [], totalCount: 0 };
+      const mockResponse: any = { results: [], totalMatches: 0, searchTime: 0, executedQuery: {}, stats: {} };
       expect(() => searchUI.displayResults(mockResponse)).not.toThrow();
     });
   });
 
   describe('onResultClick', () => {
     it('should handle SearchResult parameter', () => {
-      const mockResult = { id: '1', title: 'Test', snippet: 'Test snippet' };
+      const mockResult: any = {
+        filePath: 'test.md', title: 'Test', content: '', score: 1,
+        highlights: [], tags: [], metadata: { created: new Date(), modified: new Date(), wordCount: 10 },
+      };
       expect(() => searchUI.onResultClick(mockResult)).not.toThrow();
     });
   });
@@ -245,7 +247,10 @@ describe('SearchUI Interface Contract', () => {
 
   describe('updateIndexingProgress', () => {
     it('should accept IndexingStatus parameter', () => {
-      const status = { progress: 0.5, message: 'Indexing...' };
+      const status: any = {
+        isIndexing: true, phase: 'processing', fileWatchingEnabled: false, lastUpdate: new Date(),
+        progress: { currentDocument: 'test.md', processedCount: 5, totalCount: 10, estimatedTimeRemaining: 1000 },
+      };
       expect(() => searchUI.updateIndexingProgress(status)).not.toThrow();
     });
   });
@@ -339,6 +344,7 @@ describe('PluginSettings Interface Contract', () => {
     const mockSettings: SearchPluginSettings = {
       enabled: true,
       maxResults: 10,
+      chunkSize: 500,
       updateInterval: 1000,
       defaultToHybrid: false,
       performance: {
@@ -370,6 +376,7 @@ describe('SearchPluginSettings Type Contract', () => {
     const validSettings: SearchPluginSettings = {
       enabled: true,
       maxResults: 50,
+      chunkSize: 500,
       updateInterval: 2000,
       defaultToHybrid: true,
       performance: {
@@ -424,7 +431,10 @@ describe('StatusBarDisplay Interface Contract', () => {
 
   it('should have update method with PluginStatus parameter', () => {
     expect(typeof statusBar.update).toBe('function');
-    const status = { state: 'idle', message: 'Ready' };
+    const status: any = {
+      isEnabled: true, isIndexing: false, version: '1.0.0',
+      indexStats: { documentCount: 0, lastIndexUpdate: new Date(), indexSizeBytes: 0 },
+    };
     expect(() => statusBar.update(status)).not.toThrow();
   });
 
