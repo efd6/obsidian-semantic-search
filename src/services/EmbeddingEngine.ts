@@ -12,6 +12,12 @@ interface QueuedRequest {
     reject: (error: Error) => void;
 }
 
+const MODEL_CACHE_KEY = 'indexeddb://use-model-v1';
+const VOCAB_DB_NAME = 'semantic-search-cache';
+const VOCAB_STORE_NAME = 'vocab';
+const VOCAB_ENTRY_KEY = 'use-vocab-v1';
+const VOCAB_CDN_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/universal_sentence_encoder/vocab.json';
+
 export class EmbeddingEngine {
     private static instance: EmbeddingEngine;
     private model: use.UniversalSentenceEncoder | null = null;
@@ -66,46 +72,145 @@ export class EmbeddingEngine {
 
     private async loadModel(): Promise<use.UniversalSentenceEncoder> {
         try {
-            console.log('Loading Universal Sentence Encoder from TensorFlow.js...');
-
-            // Initialize TensorFlow.js with default backend selection
-            // This avoids explicit backend conflicts in Electron environment
+            console.log('Loading Universal Sentence Encoder...');
             await tf.ready();
-
             console.log('TensorFlow.js backend:', tf.getBackend());
-            console.log('TensorFlow.js version:', tf.version);
 
-            // Load Universal Sentence Encoder model
-            // This will download the model from CDN and cache it in browser storage
-            const model = await use.load();
+            if (!this.canUseCache()) {
+                return await use.load();
+            }
 
-            console.log('✓ Universal Sentence Encoder loaded successfully');
-            console.log('  Model dimensions: 512');
-            console.log('  Backend:', tf.getBackend());
+            const [modelCached, vocabData] = await Promise.all([
+                this.isModelCached(),
+                this.loadCachedVocab(),
+            ]);
+
+            if (modelCached && vocabData) {
+                console.log('Loading model from IndexedDB cache');
+                const vocabBlobUrl = URL.createObjectURL(
+                    new Blob([JSON.stringify(vocabData)], { type: 'application/json' })
+                );
+                try {
+                    const model = await use.load({
+                        modelUrl: MODEL_CACHE_KEY,
+                        vocabUrl: vocabBlobUrl,
+                    });
+                    console.log('✓ Model loaded from cache');
+                    return model;
+                } finally {
+                    URL.revokeObjectURL(vocabBlobUrl);
+                }
+            }
+
+            console.log('Cache miss — downloading model from CDN');
+            const fetchedVocab = await fetch(VOCAB_CDN_URL).then(r => r.json());
+            const vocabBlobUrl = URL.createObjectURL(
+                new Blob([JSON.stringify(fetchedVocab)], { type: 'application/json' })
+            );
+            let model: use.UniversalSentenceEncoder;
+            try {
+                model = await use.load({ vocabUrl: vocabBlobUrl });
+            } finally {
+                URL.revokeObjectURL(vocabBlobUrl);
+            }
+
+            // Best-effort cache for next load
+            await Promise.allSettled([
+                (model as any).model.save(MODEL_CACHE_KEY),
+                this.cacheVocab(fetchedVocab),
+            ]);
+            console.log('✓ Model downloaded and cached');
 
             return model;
         } catch (error: unknown) {
-            // Enhanced error logging for debugging
-            console.error('=== TENSORFLOW.JS MODEL ERROR DETAILS ===');
-            console.error('Error message:', error instanceof Error ? error.message : String(error));
-            console.error('Error name:', error instanceof Error ? error.name : typeof error);
-            console.error('TensorFlow.js backend:', tf.getBackend());
-            console.error('TensorFlow.js version:', tf.version);
-
-            if (error instanceof Error) {
-                console.error('Error stack:', error.stack);
-            }
-
-            // Try to serialize error for better visibility
-            try {
-                console.error('Error JSON:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-            } catch (jsonError) {
-                console.error('Could not stringify error:', jsonError);
-            }
-            console.error('=== END ERROR DETAILS ===');
-
+            console.error('Model loading failed:', error instanceof Error ? error.message : String(error));
             throw new Error(`TensorFlow.js Universal Sentence Encoder initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+    }
+
+    private canUseCache(): boolean {
+        return typeof indexedDB !== 'undefined'
+            && typeof URL !== 'undefined'
+            && typeof URL.createObjectURL === 'function';
+    }
+
+    // ---- IndexedDB model/vocab cache ----
+
+    private async isModelCached(): Promise<boolean> {
+        try {
+            const models = await tf.io.listModels();
+            return MODEL_CACHE_KEY in models;
+        } catch {
+            return false;
+        }
+    }
+
+    private async cacheVocab(data: unknown): Promise<void> {
+        const db = await this.openVocabDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(VOCAB_STORE_NAME, 'readwrite');
+            tx.objectStore(VOCAB_STORE_NAME).put(data, VOCAB_ENTRY_KEY);
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => { db.close(); reject(tx.error); };
+        });
+    }
+
+    private async loadCachedVocab(): Promise<unknown | null> {
+        try {
+            const db = await this.openVocabDB();
+            return await new Promise<unknown | null>((resolve, reject) => {
+                const tx = db.transaction(VOCAB_STORE_NAME, 'readonly');
+                const req = tx.objectStore(VOCAB_STORE_NAME).get(VOCAB_ENTRY_KEY);
+                req.onsuccess = () => { db.close(); resolve(req.result ?? null); };
+                req.onerror = () => { db.close(); reject(req.error); };
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    private static async clearVocabCache(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(VOCAB_DB_NAME, 1);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(VOCAB_STORE_NAME)) {
+                    db.createObjectStore(VOCAB_STORE_NAME);
+                }
+            };
+            req.onsuccess = () => {
+                const db = req.result;
+                try {
+                    const tx = db.transaction(VOCAB_STORE_NAME, 'readwrite');
+                    tx.objectStore(VOCAB_STORE_NAME).delete(VOCAB_ENTRY_KEY);
+                    tx.oncomplete = () => { db.close(); resolve(); };
+                    tx.onerror = () => { db.close(); reject(tx.error); };
+                } catch {
+                    db.close();
+                    resolve();
+                }
+            };
+            req.onerror = () => resolve();
+        });
+    }
+
+    private openVocabDB(): Promise<IDBDatabase> {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(VOCAB_DB_NAME, 1);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(VOCAB_STORE_NAME)) {
+                    db.createObjectStore(VOCAB_STORE_NAME);
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    public static async clearModelCache(): Promise<void> {
+        try { await tf.io.removeModel(MODEL_CACHE_KEY); } catch { /* not cached */ }
+        await EmbeddingEngine.clearVocabCache();
     }
 
     public async generateEmbedding(text: string): Promise<Float32Array> {

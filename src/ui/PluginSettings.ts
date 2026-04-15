@@ -1,6 +1,7 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { PluginSettings as IPluginSettings, SearchPluginSettings } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
 import { DataManager } from '../services/DataManager';
+import { EmbeddingEngine } from '../services/EmbeddingEngine';
 
 export class PluginSettings extends PluginSettingTab implements IPluginSettings {
     private settings: SearchPluginSettings;
@@ -222,6 +223,27 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
                     }
                 });
         });
+
+        new Setting(this.containerEl)
+            .setName('Clear model cache')
+            .setDesc('Remove the cached embedding model. It will be re-downloaded on next use.')
+            .addButton(button => button
+                .setButtonText('Clear Model Cache')
+                .setWarning()
+                .onClick(async () => {
+                    button.setButtonText('Clearing...');
+                    button.setDisabled(true);
+                    try {
+                        await EmbeddingEngine.clearModelCache();
+                        button.setButtonText('Clear Model Cache');
+                        button.setDisabled(false);
+                        new Notice('Model cache cleared');
+                    } catch {
+                        button.setButtonText('Clear Model Cache');
+                        button.setDisabled(false);
+                        new Notice('Failed to clear model cache');
+                    }
+                }));
     }
 
     private addResetSettings(): void {
