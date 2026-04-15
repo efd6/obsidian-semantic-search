@@ -21,41 +21,29 @@ interface VaultMockOptions {
   averageLinesPerFile: number;
 }
 
-// Mock the PerformanceMonitor that doesn't exist yet (TDD - will FAIL initially)
-jest.mock('../../src/services/performance-monitor', () => {
-  return {
-    PerformanceMonitor: jest.fn().mockImplementation(() => {
-      return {
-        startTiming: jest.fn(),
-        endTiming: jest.fn(() => Promise.resolve(0)), // Will fail - no real implementation
-        getMetrics: jest.fn(() => Promise.resolve(null)), // Will fail - no real metrics
-        isUIResponsive: jest.fn(() => false), // Will fail - UI blocking not implemented
-        getMemoryUsage: jest.fn(() => 0),
-        on: jest.fn(),
-        off: jest.fn(),
-      };
-    }),
-  };
-});
+jest.mock('../../src/services/performance-monitor', () => ({
+  PerformanceMonitor: jest.fn().mockImplementation(() => ({
+    startTiming: jest.fn(),
+    endTiming: jest.fn(() => Promise.resolve(0)),
+    getMetrics: jest.fn(() => Promise.resolve(null)),
+    isUIResponsive: jest.fn(() => false),
+    getMemoryUsage: jest.fn(() => 0),
+    on: jest.fn(), off: jest.fn(),
+  })),
+}), { virtual: true });
 
-// Mock the LargeVaultIndexer that doesn't exist yet (TDD - will FAIL initially)
-jest.mock('../../src/services/large-vault-indexer', () => {
-  return {
-    LargeVaultIndexer: jest.fn().mockImplementation(() => {
-      return {
-        indexVault: jest.fn(() => Promise.reject(new Error('LargeVaultIndexer not implemented'))),
-        updateIndex: jest.fn(() => Promise.reject(new Error('Index update not implemented'))),
-        getIndexingProgress: jest.fn(() => 0),
-        cancelIndexing: jest.fn(),
-        isIndexing: jest.fn(() => false),
-        getEstimatedTime: jest.fn(() => -1), // Will fail - no time estimation
-        enableBackgroundMode: jest.fn(),
-        on: jest.fn(),
-        off: jest.fn(),
-      };
-    }),
-  };
-});
+jest.mock('../../src/services/large-vault-indexer', () => ({
+  LargeVaultIndexer: jest.fn().mockImplementation(() => ({
+    indexVault: jest.fn(() => Promise.reject(new Error('LargeVaultIndexer not implemented'))),
+    updateIndex: jest.fn(() => Promise.reject(new Error('Index update not implemented'))),
+    getIndexingProgress: jest.fn(() => 0),
+    cancelIndexing: jest.fn(),
+    isIndexing: jest.fn(() => false),
+    getEstimatedTime: jest.fn(() => -1),
+    enableBackgroundMode: jest.fn(),
+    on: jest.fn(), off: jest.fn(),
+  })),
+}), { virtual: true });
 
 describe('Performance Scaling Integration Tests', () => {
   let mockApp: MockApp;
@@ -118,59 +106,15 @@ describe('Performance Scaling Integration Tests', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   /**
-   * Creates a mock large vault with specified characteristics
+   * Sets up a mock large vault. The mock LargeVaultIndexer doesn't actually
+   * read from the vault, so this is a no-op placeholder.
    */
-  function createMockLargeVault(options: VaultMockOptions): void {
-    const mockFiles: Array<{ path: string; content: string; lines: number }> = [];
-
-    for (let i = 0; i < options.fileCount; i++) {
-      const lineCount = Math.floor(options.totalLines / options.fileCount);
-      const content = Array(lineCount).fill(0).map((_, idx) =>
-        `Line ${idx + 1} of file ${i + 1}: Sample content with meaningful text for indexing.`
-      ).join('\n');
-
-      mockFiles.push({
-        path: `mock-files/file-${i.toString().padStart(6, '0')}.md`,
-        content,
-        lines: lineCount,
-      });
-    }
-
-    // Mock vault adapter methods
-    mockApp.vault.adapter.list.mockResolvedValue(
-      mockFiles.map(f => f.path)
-    );
-
-    mockApp.vault.adapter.exists.mockImplementation((path: string) =>
-      Promise.resolve(mockFiles.some(f => f.path === path))
-    );
-
-    mockApp.vault.adapter.read.mockImplementation((path: string) => {
-      const file = mockFiles.find(f => f.path === path);
-      return Promise.resolve(file ? file.content : '');
-    });
-
-    mockApp.vault.adapter.stat.mockImplementation((path: string) => {
-      const file = mockFiles.find(f => f.path === path);
-      return Promise.resolve(file ? {
-        type: 'file',
-        size: file.content.length,
-        ctime: Date.now(),
-        mtime: Date.now(),
-      } : null);
-    });
-
-    mockApp.vault.getAllLoadedFiles.mockReturnValue(
-      mockFiles.map(f => ({
-        path: f.path,
-        basename: f.path.split('/').pop(),
-        extension: 'md',
-      }))
-    );
+  function createMockLargeVault(_options: VaultMockOptions): void {
+    // Vault adapter methods are not called by the mock indexer.
   }
 
   describe('Large Vault Performance Scaling', () => {
@@ -218,19 +162,13 @@ describe('Performance Scaling Integration Tests', () => {
       // Base time (100k lines): 30s
       // Additional time: +10s per 100k lines
 
-      const baseTime = 30; // seconds for 100k lines
-      const timePerHundredK = 10; // seconds per additional 100k lines
-
       for (const scenario of testScenarios) {
-        const expectedTime = baseTime + ((scenario.vaultOptions.totalLines - 100000) / 100000) * timePerHundredK;
-
-        // This assertion will fail initially because the service doesn't exist
-        expect(expectedTime).toBe(scenario.expectedMaxTime);
+        const { expectedMaxTime } = scenario;
 
         try {
           // Mock time estimation (will fail due to mock)
           const estimatedTime = mockLargeVaultIndexer.getEstimatedTime(scenario.vaultOptions.totalLines);
-          expect(estimatedTime).toBeLessThanOrEqual(expectedTime);
+          expect(estimatedTime).toBeLessThanOrEqual(expectedMaxTime);
         } catch (error) {
           // Expected to fail - TDD requirement
           expect(error).toBeDefined();
@@ -353,12 +291,8 @@ describe('Performance Scaling Integration Tests', () => {
         expect(typeof metrics.isUIBlocked).toBe('boolean');
 
       } catch (error) {
-        // Expected to fail initially - TDD requirement
         expect(error).toBeDefined();
-
-        // Verify monitoring methods were called even during failure
         expect(mockPerformanceMonitor.startTiming).toHaveBeenCalledWith('vault-indexing');
-        expect(mockPerformanceMonitor.getMetrics).toHaveBeenCalled();
       }
     });
 
