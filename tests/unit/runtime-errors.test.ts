@@ -83,13 +83,11 @@ describe('Runtime Error Fixes', () => {
 
       await plugin.onload();
 
-      // Trigger layout ready to execute the deferred view registration
-      mockApp.workspace.triggerLayoutReady();
+      // activateSearchView is the code path that calls getRightLeaf/getLeaf;
+      // onload + triggerLayoutReady only starts indexing.
+      (plugin as any).activateSearchView();
 
-      // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      expect(getLeafSpy).toHaveBeenCalledWith('tab');
+      expect(getLeafSpy).toHaveBeenCalledWith('split', 'vertical');
 
       delete process.env.TEST_LAYOUT_FAILURE;
     });

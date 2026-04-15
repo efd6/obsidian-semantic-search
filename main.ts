@@ -121,6 +121,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
             // Clean up services
             this.fileWatcher?.dispose();
             await this.indexStorage?.close();
+            await this.embeddingEngine?.cleanup();
 
             // Clear service references
             this.indexStorage = undefined as any as IndexStorage;

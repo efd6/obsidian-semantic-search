@@ -29,12 +29,12 @@ describe('Chunk Validation Tests', () => {
       }).toThrow('Content length must be <= 2048 characters');
     });
 
-    it('should handle empty content', () => {
+    it('should reject empty content with zero-length offset range', () => {
       const embedding = new Float32Array(512).fill(0.1);
 
       expect(() => {
         Chunk.create('doc-1', 0, '', 0, 0, embedding);
-      }).not.toThrow();
+      }).toThrow(ChunkValidationError);
     });
 
     it('should handle content with exactly 1800 characters (default chunk size)', () => {
