@@ -474,6 +474,25 @@ class MockItemView {
     }
 }
 
+class MockSetting {
+    constructor(containerEl) {
+        this.containerEl = containerEl;
+        this.settingEl = {
+            createDiv: jest.fn().mockReturnValue({
+                empty: jest.fn(),
+                createSpan: jest.fn().mockReturnValue({ textContent: '' }),
+            }),
+        };
+    }
+    setName() { return this; }
+    setDesc() { return this; }
+    addToggle(cb) { cb({ setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
+    addSlider(cb) { cb({ setLimits: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), setDynamicTooltip: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
+    addDropdown(cb) { cb({ addOptions: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
+    addButton(cb) { cb({ setButtonText: jest.fn().mockReturnThis(), setCta: jest.fn().mockReturnThis(), setWarning: jest.fn().mockReturnThis(), setDisabled: jest.fn().mockReturnThis(), onClick: jest.fn().mockReturnThis() }); return this; }
+    addText(cb) { cb({ setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis(), setPlaceholder: jest.fn().mockReturnThis() }); return this; }
+}
+
 // Utility functions
 const debounce = (func, wait) => {
     let timeout;
@@ -500,6 +519,7 @@ module.exports = {
     Workspace: MockWorkspace,
     WorkspaceLeaf: MockWorkspaceLeaf,
     Notice: MockNotice,
+    Setting: MockSetting,
     debounce: debounce,
 
     // Helper to create test app with sample data
