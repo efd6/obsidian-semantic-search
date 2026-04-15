@@ -89,7 +89,8 @@ export class IgnorePatternProcessor {
 		}
 
 		const ig = ignore().add(validPatterns);
-		return !ig.ignores(filePath);
+		const relativePath = filePath.replace(/^\/+/, '');
+		return !ig.ignores(relativePath);
 	}
 
 	private getDefaultIgnorePatterns(): IgnorePattern[] {
