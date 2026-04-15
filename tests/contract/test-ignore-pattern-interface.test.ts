@@ -110,25 +110,17 @@ describe('IgnorePatternProcessor contract', () => {
       expect(patterns).toEqual([]);
     });
 
-    it('should set parseError on any pattern that micromatch rejects', () => {
+    it('should mark all non-empty non-comment patterns as valid', () => {
       const vault = createMockVault();
       const processor = new IgnorePatternProcessor(vault);
 
-      // micromatch.makeRe is extremely lenient, so most "malformed"
-      // patterns are accepted. This test verifies the structural
-      // contract: IF any are rejected, they carry a parseError.
       const patterns = processor.parseIgnoreFile(
         '*.md\n[bracket\nvalid.txt\n',
         '.obsidianignore',
       );
 
-      expect(patterns.length).toBeGreaterThan(0);
-      patterns.forEach(p => {
-        if (!p.isValid) {
-          expect(p.parseError).toBeDefined();
-          expect(typeof p.parseError).toBe('string');
-        }
-      });
+      expect(patterns.length).toBe(3);
+      expect(patterns.every(p => p.isValid)).toBe(true);
     });
   });
 

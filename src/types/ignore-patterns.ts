@@ -12,7 +12,4 @@ export interface IgnorePattern {
 
   /** Whether this pattern was parsed successfully */
   isValid: boolean;
-
-  /** Error message for invalid patterns */
-  parseError?: string;
 }

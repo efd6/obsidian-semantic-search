@@ -92,11 +92,8 @@ describe('.obsidianignore Pattern Processing Integration', () => {
     let processor: IgnorePatternProcessor;
 
     beforeEach(async () => {
-      // Avoid gitignore negation patterns (!) here — micromatch treats
-      // them as glob negations, which have different semantics and would
-      // cause every non-matching path to be flagged as ignored.
       const vault = createMockVault({
-        '.obsidianignore': '*.tmp\ntemp/\n.git/',
+        '.obsidianignore': '*.tmp\n!important.tmp\ntemp/\n.git/',
       });
       processor = new IgnorePatternProcessor(vault);
       await processor.loadIgnorePatterns();
@@ -114,6 +111,11 @@ describe('.obsidianignore Pattern Processing Integration', () => {
       for (const path of ['normal.md', 'document.md', 'folder/file.md', 'notes/important.md']) {
         expect(await processor.shouldIndexFile(path)).toBe(true);
       }
+    });
+
+    it('should re-include files via negation patterns', async () => {
+      expect(await processor.shouldIndexFile('test.tmp')).toBe(false);
+      expect(await processor.shouldIndexFile('important.tmp')).toBe(true);
     });
 
     it('should handle directory patterns', async () => {

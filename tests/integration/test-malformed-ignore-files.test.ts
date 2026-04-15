@@ -37,13 +37,7 @@ describe('Malformed Ignore File Handling Integration', () => {
   });
 
   describe('Invalid Pattern Handling (FR-010)', () => {
-    // micromatch.makeRe() is extremely lenient and accepts patterns like
-    // [invalid-regex, (?:, etc. without throwing. The parseIgnoreFile
-    // implementation marks patterns invalid only when makeRe throws, so
-    // in practice all syntactically non-empty patterns pass. These tests
-    // verify that the graceful-degradation path works regardless.
-
-    it('should load all non-empty patterns as valid when micromatch accepts them', async () => {
+    it('should load all non-empty patterns as valid', async () => {
       const vault = createMockVault({
         '.obsidianignore': '*.md\n[invalid-regex\nvalid-pattern.txt\n***/broken\nnormal/*.md',
       });
