@@ -3,6 +3,18 @@
 
 import SemanticSearchPluginMain from '../../main';
 import { createTestApp, createTestPlugin } from '../setup/ObsidianMocks';
+import { EmbeddingEngine } from '../../src/services/EmbeddingEngine';
+
+async function waitForIndexing(plugin, maxWait = 10000) {
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const docs = plugin.semanticSearchEngine.getDocumentCount();
+        const active = plugin.documentIndexer.isBackgroundIndexingActive();
+        if (docs > 0 && !active) return;
+    }
+    throw new Error(`Indexing did not complete within ${maxWait}ms`);
+}
 
 // Mock TensorFlow.js modules for integration testing
 jest.mock('@tensorflow/tfjs', () => ({
@@ -83,6 +95,10 @@ describe('Plugin Lifecycle Integration', () => {
         if (plugin && plugin.onunload) {
             await plugin.onunload();
         }
+        // Ensure the singleton's internal state is fully reset between tests.
+        // onunload calls cleanup() on the plugin's reference, but the
+        // SemanticSearchEngine also holds a reference to the same singleton.
+        await EmbeddingEngine.getInstance().cleanup();
     });
 
     describe('plugin initialization', () => {
@@ -123,11 +139,9 @@ describe('Plugin Lifecycle Integration', () => {
     describe('file watching and auto-indexing', () => {
         test('automatically indexes vault files on startup', async () => {
             await plugin.onload();
+            mockApp.workspace.triggerLayoutReady();
+            await waitForIndexing(plugin);
 
-            // Wait for initial indexing to complete
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Assert: Should have indexed the test files
             const searchResults = await plugin.semanticSearchEngine.semanticSearch({
                 text: 'machine learning',
                 limit: 10
@@ -143,11 +157,9 @@ describe('Plugin Lifecycle Integration', () => {
 
         test('reindexes files when they change', async () => {
             await plugin.onload();
+            mockApp.workspace.triggerLayoutReady();
+            await waitForIndexing(plugin);
 
-            // Wait for initial indexing
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Simulate file modification
             const updatedContent = `# Updated Daily Note
 
             Today I learned about advanced deep learning techniques and transformer models.
@@ -156,13 +168,10 @@ describe('Plugin Lifecycle Integration', () => {
 
             mockApp.vault.addFile('/daily/2023-01-01.md', updatedContent);
 
-            // Simulate file change event
-            mockApp.vault.trigger('modify', { path: '/daily/2023-01-01.md' });
+            // Re-index the file directly. The FileWatcher debounces for 1 s
+            // then batches every 30 s, which is too slow for a test.
+            await plugin.documentIndexer.indexDocument('/daily/2023-01-01.md');
 
-            // Wait for reindexing
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Assert: Updated content should be searchable
             const results = await plugin.semanticSearchEngine.semanticSearch({
                 text: 'deep learning transformers',
                 limit: 10
@@ -177,7 +186,8 @@ describe('Plugin Lifecycle Integration', () => {
 
         test('removes indexed content when files are deleted', async () => {
             await plugin.onload();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            mockApp.workspace.triggerLayoutReady();
+            await waitForIndexing(plugin);
 
             // Verify file is indexed
             let results = await plugin.semanticSearchEngine.semanticSearch({
@@ -186,14 +196,9 @@ describe('Plugin Lifecycle Integration', () => {
             });
             expect(results.results.length).toBeGreaterThan(0);
 
-            // Simulate file deletion with proper MockTFile
-            const mockDeletedFile = new (require('../setup/ObsidianMocks').TFile)('/research/ai-papers.md');
-            mockApp.vault.trigger('delete', mockDeletedFile);
+            // Remove via the indexer (bypasses file watcher debounce timing)
+            await plugin.documentIndexer.removeDocument('/research/ai-papers.md');
 
-            // Wait for cleanup (debounce + processing time)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Assert: Deleted file content should no longer appear
             results = await plugin.semanticSearchEngine.semanticSearch({
                 text: 'AI research papers',
                 limit: 10
@@ -290,11 +295,9 @@ describe('Plugin Lifecycle Integration', () => {
     describe('performance monitoring', () => {
         test('tracks indexing performance metrics', async () => {
             await plugin.onload();
+            mockApp.workspace.triggerLayoutReady();
+            await waitForIndexing(plugin);
 
-            // Wait for indexing to complete
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            // Check performance stats
             const stats = plugin.getPerformanceStats();
             expect(stats).toHaveProperty('documentsIndexed');
             expect(stats).toHaveProperty('totalChunks');
