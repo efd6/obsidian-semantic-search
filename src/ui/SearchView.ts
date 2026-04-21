@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, debounce } from 'obsidian';
+import { ItemView, WorkspaceLeaf, debounce, setIcon } from 'obsidian';
 import { IndexingStatus } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
 import { SearchResponse, SearchResult, SearchQuery } from '../../specs/001-obsidian-search-plugin/contracts/search-interface';
 import { SearchUI, SearchView as ISearchView } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
@@ -61,29 +61,54 @@ export class SearchView extends ItemView implements SearchUI, ISearchView {
         }
 
         for (const result of response.results) {
-            const resultEl = this.resultsContainer.createEl('div', { cls: 'search-result' });
+            const resultEl = this.resultsContainer.createEl('div', {
+                cls: 'search-result',
+                attr: { 'data-result-id': result.filePath },
+            });
 
-            const titleEl = resultEl.createEl('div', { cls: 'result-title' });
-            titleEl.createEl('a', {
+            const titleRow = resultEl.createEl('div', { cls: 'result-title-container' });
+
+            const titleLeft = titleRow.createEl('div', { cls: 'result-title' });
+
+            const iconEl = titleLeft.createEl('span', { cls: 'result-icon' });
+            setIcon(iconEl, SearchView.fileIcon(result.filePath));
+
+            const link = titleLeft.createEl('a', {
                 text: result.title,
                 cls: 'result-link',
-                attr: { href: '#' }
-            }).addEventListener('click', (e) => {
+                attr: { href: '#' },
+            });
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.onResultClick(result);
             });
 
-            resultEl.createEl('div', { cls: 'result-path', text: result.filePath });
+            const ext = SearchView.fileExtension(result.filePath);
+            if (ext) {
+                titleLeft.createEl('span', { cls: 'result-extension', text: `.${ext}` });
+            }
 
-            const snippetEl = resultEl.createEl('div', { cls: 'result-snippet' });
+            if (result.highlights.length > 0) {
+                const label = result.highlights.length === 1 ? 'match' : 'matches';
+                titleRow.createEl('span', {
+                    cls: 'result-counter',
+                    text: `${result.highlights.length} ${label}`,
+                });
+            }
+
+            const folder = SearchView.folderPath(result.filePath);
+            if (folder) {
+                const folderEl = resultEl.createEl('div', { cls: 'result-folder-path' });
+                const folderIconEl = folderEl.createEl('span', { cls: 'result-icon' });
+                setIcon(folderIconEl, 'folder-open');
+                folderEl.createEl('span', { text: folder });
+            }
+
+            const snippetEl = resultEl.createEl('div', { cls: 'result-body' });
             this.renderSnippetWithHighlights(snippetEl, result);
 
-            const metaEl = resultEl.createEl('div', { cls: 'result-meta' });
-            metaEl.createEl('span', { cls: 'score', text: `Score: ${result.score.toFixed(2)}` });
-            metaEl.createEl('span', { cls: 'match-type', text: result.matchType });
-
             if (result.tags.length > 0) {
-                const tagsEl = metaEl.createEl('div', { cls: 'result-tags' });
+                const tagsEl = resultEl.createEl('div', { cls: 'result-tags' });
                 for (const tag of result.tags) {
                     tagsEl.createEl('span', { cls: 'tag', text: `#${tag}` });
                 }
@@ -268,6 +293,26 @@ export class SearchView extends ItemView implements SearchUI, ISearchView {
         }
     }
 
+    private static fileIcon(filePath: string): string {
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+        switch (ext) {
+            case 'pdf': return 'file-text';
+            case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'svg': return 'image';
+            case 'canvas': return 'layout-dashboard';
+            default: return 'file';
+        }
+    }
+
+    private static folderPath(filePath: string): string {
+        const lastSlash = filePath.lastIndexOf('/');
+        return lastSlash > 0 ? filePath.slice(0, lastSlash) : '';
+    }
+
+    private static fileExtension(filePath: string): string {
+        const dot = filePath.lastIndexOf('.');
+        return dot >= 0 ? filePath.slice(dot + 1) : '';
+    }
+
     private renderSnippetWithHighlights(container: HTMLElement, result: SearchResult): void {
         const snippet = result.snippet;
         let offset = 0;
@@ -278,9 +323,9 @@ export class SearchView extends ItemView implements SearchUI, ISearchView {
 
             if (before) container.appendText(before);
 
-            container.createEl('mark', {
+            container.createEl('span', {
                 text: highlighted,
-                cls: `highlight-${highlight.type}`
+                cls: `search-highlight search-highlight-${highlight.type}`
             });
 
             offset = highlight.end;

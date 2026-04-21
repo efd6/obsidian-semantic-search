@@ -1,4 +1,4 @@
-import { App, Modal, debounce } from 'obsidian';
+import { App, Modal, debounce, setIcon } from 'obsidian';
 import { SearchResponse, SearchResult, SearchQuery, TextHighlight } from '../../specs/001-obsidian-search-plugin/contracts/search-interface';
 import { SearchModal as ISearchModal } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
 import { SemanticSearchEngine } from '../services/SemanticSearchEngine';
@@ -10,6 +10,7 @@ export class SearchModal extends Modal implements ISearchModal {
     private selectedIndex: number = 0;
     private results: SearchResult[] = [];
     private searchHistory: string[] = [];
+    private showExcerpts: boolean = true;
     private debouncedSearch: () => void;
 
     constructor(app: App, searchEngine: SemanticSearchEngine) {
@@ -46,7 +47,7 @@ export class SearchModal extends Modal implements ISearchModal {
 
         this.searchInput = inputContainer.createEl('input', {
             type: 'text',
-            placeholder: 'Search your notes... (Ctrl/Cmd+Shift+F)',
+            placeholder: 'Search your notes...',
             cls: 'search-modal-input'
         });
 
@@ -59,6 +60,12 @@ export class SearchModal extends Modal implements ISearchModal {
     }
 
     private handleKeydown(event: KeyboardEvent): void {
+        if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            this.toggleExcerpts();
+            return;
+        }
+
         switch (event.key) {
             case 'ArrowDown': {
                 event.preventDefault();
@@ -82,6 +89,14 @@ export class SearchModal extends Modal implements ISearchModal {
         }
     }
 
+    private toggleExcerpts(): void {
+        this.showExcerpts = !this.showExcerpts;
+        const excerpts = this.resultsContainer.querySelectorAll('.result-body');
+        for (const el of excerpts) {
+            (el as HTMLElement).toggle(this.showExcerpts);
+        }
+    }
+
     private navigateResults(direction: number): void {
         if (this.results.length === 0) return;
 
@@ -94,6 +109,9 @@ export class SearchModal extends Modal implements ISearchModal {
         for (const [index, el] of resultElements.entries()) {
             el.toggleClass('selected', index === this.selectedIndex);
         }
+
+        const selected = resultElements[this.selectedIndex] as HTMLElement | undefined;
+        selected?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
     }
 
     private selectResult(): void {
@@ -111,18 +129,40 @@ export class SearchModal extends Modal implements ISearchModal {
     private addToHistory(query: string): void {
         if (query && !this.searchHistory.includes(query)) {
             this.searchHistory.unshift(query);
-            this.searchHistory = this.searchHistory.slice(0, 10); // Keep last 10
+            this.searchHistory = this.searchHistory.slice(0, 10);
         }
     }
 
+    private static fileIcon(filePath: string): string {
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+        switch (ext) {
+            case 'pdf': return 'file-text';
+            case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'svg': return 'image';
+            case 'canvas': return 'layout-dashboard';
+            default: return 'file';
+        }
+    }
+
+    private static folderPath(filePath: string): string {
+        const lastSlash = filePath.lastIndexOf('/');
+        return lastSlash > 0 ? filePath.slice(0, lastSlash) : '';
+    }
+
+    private static fileExtension(filePath: string): string {
+        const dot = filePath.lastIndexOf('.');
+        return dot >= 0 ? filePath.slice(dot + 1) : '';
+    }
 
     private createHighlightedSnippet(
         originalSnippet: string,
         highlights: TextHighlight[],
-        maxLength: number = 150
+        maxLength: number = 200
     ): HTMLElement {
         const snippetEl = document.createElement('div');
-        snippetEl.className = 'result-snippet';
+        snippetEl.className = 'result-body';
+        if (!this.showExcerpts) {
+            snippetEl.style.display = 'none';
+        }
 
         let snippet = originalSnippet;
         let adjustedHighlights = [...highlights];
@@ -173,21 +213,19 @@ export class SearchModal extends Modal implements ISearchModal {
 
         for (const highlight of sortedHighlights) {
             if (highlight.start > lastIndex) {
-                const textNode = document.createTextNode(snippet.slice(lastIndex, highlight.start));
-                snippetEl.append(textNode);
+                snippetEl.append(document.createTextNode(snippet.slice(lastIndex, highlight.start)));
             }
 
-            const highlightSpan = document.createElement('span');
-            highlightSpan.className = `search-highlight search-highlight-${highlight.type}`;
-            highlightSpan.textContent = snippet.slice(highlight.start, highlight.end);
-            snippetEl.append(highlightSpan);
+            const mark = document.createElement('span');
+            mark.className = `search-highlight search-highlight-${highlight.type}`;
+            mark.textContent = snippet.slice(highlight.start, highlight.end);
+            snippetEl.append(mark);
 
             lastIndex = highlight.end;
         }
 
         if (lastIndex < snippet.length) {
-            const textNode = document.createTextNode(snippet.slice(lastIndex));
-            snippetEl.append(textNode);
+            snippetEl.append(document.createTextNode(snippet.slice(lastIndex)));
         }
 
         return snippetEl;
@@ -204,7 +242,7 @@ export class SearchModal extends Modal implements ISearchModal {
         try {
             const searchQuery: SearchQuery = {
                 text: query,
-                limit: 5,
+                limit: 20,
                 mode: 'hybrid'
             };
 
@@ -227,13 +265,43 @@ export class SearchModal extends Modal implements ISearchModal {
         }
 
         for (const [index, result] of this.results.entries()) {
-            const resultEl = this.resultsContainer.createEl('div', { cls: 'search-result' });
+            const resultEl = this.resultsContainer.createEl('div', {
+                cls: 'search-result',
+                attr: { 'data-result-id': result.filePath },
+            });
 
-            resultEl.createEl('div', { cls: 'result-title', text: result.title });
-            resultEl.createEl('div', { cls: 'result-path', text: result.filePath });
+            const titleRow = resultEl.createEl('div', { cls: 'result-title-container' });
 
-            const highlightedSnippetEl = this.createHighlightedSnippet(result.snippet, result.highlights);
-            resultEl.append(highlightedSnippetEl);
+            const titleLeft = titleRow.createEl('div', { cls: 'result-title' });
+
+            const iconEl = titleLeft.createEl('span', { cls: 'result-icon' });
+            setIcon(iconEl, SearchModal.fileIcon(result.filePath));
+
+            titleLeft.createEl('span', { text: result.title });
+
+            const ext = SearchModal.fileExtension(result.filePath);
+            if (ext) {
+                titleLeft.createEl('span', { cls: 'result-extension', text: `.${ext}` });
+            }
+
+            if (result.highlights.length > 0) {
+                const label = result.highlights.length === 1 ? 'match' : 'matches';
+                titleRow.createEl('span', {
+                    cls: 'result-counter',
+                    text: `${result.highlights.length} ${label}`,
+                });
+            }
+
+            const folder = SearchModal.folderPath(result.filePath);
+            if (folder) {
+                const folderEl = resultEl.createEl('div', { cls: 'result-folder-path' });
+                const folderIconEl = folderEl.createEl('span', { cls: 'result-icon' });
+                setIcon(folderIconEl, 'folder-open');
+                folderEl.createEl('span', { text: folder });
+            }
+
+            const snippetEl = this.createHighlightedSnippet(result.snippet, result.highlights);
+            resultEl.append(snippetEl);
 
             resultEl.addEventListener('click', () => this.openFile(result));
             resultEl.addEventListener('mouseenter', () => {

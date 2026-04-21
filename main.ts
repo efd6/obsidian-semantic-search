@@ -206,7 +206,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.addSettingTab(this.pluginSettings);
 
         // Create ribbon icon (lazy-loads modal on click)
-        this.ribbonIcon = this.addRibbonIcon('search', 'Semantic Search', () => {
+        this.ribbonIcon = this.addRibbonIcon('text-search', 'Semantic Search', () => {
             this.searchModal.open();
         });
     }
