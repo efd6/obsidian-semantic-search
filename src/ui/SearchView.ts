@@ -296,10 +296,10 @@ export class SearchView extends ItemView implements SearchUI, ISearchView {
     private static fileIcon(filePath: string): string {
         const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
         switch (ext) {
-            case 'pdf': return 'file-text';
-            case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'svg': return 'image';
-            case 'canvas': return 'layout-dashboard';
-            default: return 'file';
+            case 'pdf': { return 'file-text'; }
+            case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'svg': { return 'image'; }
+            case 'canvas': { return 'layout-dashboard'; }
+            default: { return 'file'; }
         }
     }
 

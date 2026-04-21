@@ -103,7 +103,8 @@ export class EmbeddingEngine {
             }
 
             console.log('Cache miss — downloading model from CDN');
-            const fetchedVocab = await fetch(VOCAB_CDN_URL).then(r => r.json());
+            const fetchedVocab: unknown = await fetch(VOCAB_CDN_URL)
+                .then((r): Promise<unknown> => r.json() as Promise<unknown>);
             const vocabBlobUrl = URL.createObjectURL(
                 new Blob([JSON.stringify(fetchedVocab)], { type: 'application/json' })
             );
@@ -115,8 +116,9 @@ export class EmbeddingEngine {
             }
 
             // Best-effort cache for next load
+            type GraphModelHost = { model: { save(loc: string): Promise<void> } };
             await Promise.allSettled([
-                (model as any).model.save(MODEL_CACHE_KEY),
+                (model as unknown as GraphModelHost).model.save(MODEL_CACHE_KEY),
                 this.cacheVocab(fetchedVocab),
             ]);
             console.log('✓ Model downloaded and cached');
@@ -147,22 +149,22 @@ export class EmbeddingEngine {
 
     private async cacheVocab(data: unknown): Promise<void> {
         const db = await this.openVocabDB();
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             const tx = db.transaction(VOCAB_STORE_NAME, 'readwrite');
             tx.objectStore(VOCAB_STORE_NAME).put(data, VOCAB_ENTRY_KEY);
-            tx.oncomplete = () => { db.close(); resolve(); };
-            tx.onerror = () => { db.close(); reject(tx.error); };
+            tx.addEventListener('complete', (): void => { db.close(); resolve(); });
+            tx.addEventListener('error', (): void => { db.close(); reject(tx.error ?? new Error('Transaction failed')); });
         });
     }
 
-    private async loadCachedVocab(): Promise<unknown | null> {
+    private async loadCachedVocab(): Promise<unknown> {
         try {
             const db = await this.openVocabDB();
-            return await new Promise<unknown | null>((resolve, reject) => {
+            return await new Promise<unknown>((resolve, reject) => {
                 const tx = db.transaction(VOCAB_STORE_NAME, 'readonly');
                 const req = tx.objectStore(VOCAB_STORE_NAME).get(VOCAB_ENTRY_KEY);
-                req.onsuccess = () => { db.close(); resolve(req.result ?? null); };
-                req.onerror = () => { db.close(); reject(req.error); };
+                req.addEventListener('success', (): void => { db.close(); resolve(req.result ?? null); });
+                req.addEventListener('error', (): void => { db.close(); reject(req.error ?? new Error('Request failed')); });
             });
         } catch {
             return null;
@@ -170,41 +172,41 @@ export class EmbeddingEngine {
     }
 
     private static async clearVocabCache(): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             const req = indexedDB.open(VOCAB_DB_NAME, 1);
-            req.onupgradeneeded = () => {
+            req.addEventListener('upgradeneeded', (): void => {
                 const db = req.result;
                 if (!db.objectStoreNames.contains(VOCAB_STORE_NAME)) {
                     db.createObjectStore(VOCAB_STORE_NAME);
                 }
-            };
-            req.onsuccess = () => {
+            });
+            req.addEventListener('success', (): void => {
                 const db = req.result;
                 try {
                     const tx = db.transaction(VOCAB_STORE_NAME, 'readwrite');
                     tx.objectStore(VOCAB_STORE_NAME).delete(VOCAB_ENTRY_KEY);
-                    tx.oncomplete = () => { db.close(); resolve(); };
-                    tx.onerror = () => { db.close(); reject(tx.error); };
+                    tx.addEventListener('complete', (): void => { db.close(); resolve(); });
+                    tx.addEventListener('error', (): void => { db.close(); reject(tx.error ?? new Error('Transaction failed')); });
                 } catch {
                     db.close();
                     resolve();
                 }
-            };
-            req.onerror = () => resolve();
+            });
+            req.addEventListener('error', (): void => resolve());
         });
     }
 
     private openVocabDB(): Promise<IDBDatabase> {
-        return new Promise((resolve, reject) => {
+        return new Promise<IDBDatabase>((resolve, reject) => {
             const req = indexedDB.open(VOCAB_DB_NAME, 1);
-            req.onupgradeneeded = () => {
+            req.addEventListener('upgradeneeded', (): void => {
                 const db = req.result;
                 if (!db.objectStoreNames.contains(VOCAB_STORE_NAME)) {
                     db.createObjectStore(VOCAB_STORE_NAME);
                 }
-            };
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
+            });
+            req.addEventListener('success', (): void => resolve(req.result));
+            req.addEventListener('error', (): void => reject(req.error ?? new Error('Failed to open database')));
         });
     }
 
