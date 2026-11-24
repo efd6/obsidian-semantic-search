@@ -27,7 +27,7 @@
 		"ai",
 		"offline"
 	],
-	"author": "Upstart Engineering",
+	"author": "Dan Kortschak",
 	"license": "MIT",
 	"devDependencies": {
 		"@eslint-community/eslint-plugin-eslint-comments": "4.5.0",

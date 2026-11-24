@@ -2,6 +2,8 @@
 
 An advanced semantic search plugin for Obsidian that enables AI-powered content discovery using embedding models. Find notes by meaning, not just keywords.
 
+This is a hard fork of [nigel-upstart/obsidian-semantic-search](https://github.com/nigel-upstart/obsidian-semantic-search), developed independently of the original.
+
 ## Features
 
 - **🧠 Semantic Search**: Find content by meaning using state-of-the-art embedding models
