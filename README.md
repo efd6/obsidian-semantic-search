@@ -90,9 +90,15 @@ starts, so the plugin keeps no copy of your notes outside the vault's own files.
 With **Keep the index between sessions** turned on (Data Management settings),
 the index is saved to `index.json` in this plugin's folder in the vault, and on
 the next start only notes that have changed are embedded again. That file
-contains the text of your notes. It goes wherever the vault's `.obsidian`
-folder goes, including syncs and backups. Turning the setting off, or using
+contains the text of your notes. Turning the setting off, or using
 **Clear Search Index Data**, deletes it.
+
+Anything that copies the whole `.obsidian` folder, such as git, a file-sync
+tool or a backup, copies `index.json` too. Obsidian Sync is reported to copy
+only a plugin's `main.js`, `styles.css` and `data.json`
+([report](https://github.com/scambier/obsidian-text-extractor/issues/64)),
+so `index.json` is expected to stay on the device that wrote it. Obsidian's
+documentation does not say either way, and this has not been tested here.
 
 ### AI Model
 

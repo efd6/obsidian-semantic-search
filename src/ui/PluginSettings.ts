@@ -201,7 +201,7 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
 
         new Setting(this.containerEl)
             .setName('Keep the index between sessions')
-            .setDesc('Save the index in this plugin\'s folder in the vault (index.json), so notes are not embedded again each time Obsidian starts. The file contains the text of your notes and is copied by anything that syncs or backs up the .obsidian folder. Turning this off deletes it.')
+            .setDesc('Save the index in this plugin\'s folder in the vault (index.json), so notes are not embedded again each time Obsidian starts. The file contains the text of your notes. Tools that copy the whole .obsidian folder, such as git or file-sync apps, copy it too; Obsidian Sync is reported not to. Turning this off deletes it.')
             .addToggle(toggle => toggle
                 .setValue(this.settings.persistIndex)
                 .onChange(async (value) => {
