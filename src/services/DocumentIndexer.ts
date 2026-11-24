@@ -221,6 +221,10 @@ export class DocumentIndexer implements IDocumentIndexer {
 
       document.markAsIndexed();
 
+      // Remove the previous version first. Otherwise, when a note gets shorter,
+      // its old trailing chunks stay searchable.
+      this.searchEngine?.removeDocument?.(document.id);
+
       // Add document and chunks to search engine if available
       if (this.searchEngine?.addDocument) {
         this.searchEngine.addDocument(document);

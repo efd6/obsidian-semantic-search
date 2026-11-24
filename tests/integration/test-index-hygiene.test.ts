@@ -123,6 +123,26 @@ describe('index hygiene', () => {
     });
   });
 
+  describe('re-indexing', () => {
+    it('drops text that was removed from a note', async () => {
+      // Long enough to span several chunks, so the secret is in a chunk that
+      // the shortened note no longer has.
+      const filler = 'filler text. '.repeat(300);
+      const tv = newTestVault({ 'note.md': `${filler}SECRET-AT-THE-END` });
+      const { indexer, engine } = newIndexer(tv);
+
+      await indexer.indexDocument('note.md');
+      expect(engine.getChunkCount()).toBeGreaterThan(1);
+      expect(indexedText(engine)).toContain('SECRET-AT-THE-END');
+
+      tv.files['note.md'] = 'short note';
+      await indexer.indexDocument('note.md');
+
+      expect(indexedText(engine)).not.toContain('SECRET-AT-THE-END');
+      expect(engine.getChunkCount()).toBe(1);
+    });
+  });
+
   describe('document IDs', () => {
     it('keeps notes whose paths collided under the old 32-bit hash apart', async () => {
       // "Aa" and "BB" have the same String.hashCode-style hash.
