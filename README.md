@@ -73,19 +73,31 @@ Access settings via Settings → Semantic Search Plugin:
 - **DocumentIndexer**: Manages vault indexing and file processing
 - **SemanticSearchEngine**: Handles embedding generation and similarity search
 - **FileWatcher**: Monitors file changes for real-time updates
-- **IndexStorage**: RxDB-based local storage with horizontal partitioning
+- **PersistedIndex**: Optionally saves the index to a file in the vault between sessions
 - **EmbeddingEngine**: TensorFlow.js Universal Sentence Encoder for on-device embedding
 
 ### Data Flow
 
-1. **Indexing**: Files → Chunks → Embeddings → IndexedDB
+1. **Indexing**: Files → Chunks → Embeddings → in-memory index
 2. **Search**: Query → Embedding → Similarity Calculation → Ranked Results
 3. **Updates**: File Change → Re-embedding → Index Update
+
+### Where the index is kept
+
+By default the index is held only in memory and is rebuilt each time Obsidian
+starts, so the plugin keeps no copy of your notes outside the vault's own files.
+
+With **Keep the index between sessions** turned on (Data Management settings),
+the index is saved to `index.json` in this plugin's folder in the vault, and on
+the next start only notes that have changed are embedded again. That file
+contains the text of your notes. It goes wherever the vault's `.obsidian`
+folder goes, including syncs and backups. Turning the setting off, or using
+**Clear Search Index Data**, deletes it.
 
 ### AI Model
 
 Uses TensorFlow.js [Universal Sentence Encoder](https://tfhub.dev/google/universal-sentence-encoder/4) (512 dimensions):
-- **Loading**: Downloaded from Google's TFHub CDN on first use, then cached in browser storage
+- **Loading**: Downloaded on first use from TFHub (served from Kaggle) and Google Cloud Storage, checked against pinned SHA-256 hashes, then cached in IndexedDB. A download that doesn't match is refused, and search is unavailable until a matching one is obtained.
 - **Language**: Optimized for English text
 - **Performance**: ~100ms per embedding on modern hardware
 - **No API key required**: No cloud service or running server needed
@@ -145,15 +157,13 @@ npm run lint
 ```
 src/
 ├── models/           # Data models (Document, Chunk, Tag, etc.)
-├── services/         # Core services (Indexer, Search, Storage)
-├── ui/               # User interface components
-└── workers/          # Web Workers for background processing
+├── services/         # Core services (Indexer, Search, Embedding, saved index)
+└── ui/               # User interface components
 
 tests/
-├── unit/             # Unit tests for utilities
+├── unit/             # Unit tests
 ├── integration/      # Integration tests
-├── contracts/        # Interface contract tests
-└── performance/      # Performance validation
+└── contract/         # Interface contract tests
 
 specs/
 └── 001-obsidian-search-plugin/
@@ -204,12 +214,9 @@ specs/
 
 ### Debug Mode
 
-Enable debug logging in settings for detailed troubleshooting:
-
-```javascript
-// Browser console
-localStorage.setItem('semantic-search-debug', 'true');
-```
+Turn on **Debug Mode** in Advanced Settings to log each note's path to the
+developer console as it is indexed. Paths are not logged otherwise, because
+they can reveal what your notes are about.
 
 ### Support
 
@@ -255,5 +262,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 - [TensorFlow.js](https://www.tensorflow.org/js) and the [Universal Sentence Encoder](https://tfhub.dev/google/universal-sentence-encoder/4) for on-device embeddings
-- [RxDB](https://rxdb.info/) for reactive database functionality
 - [Obsidian](https://obsidian.md/) for the excellent plugin API
