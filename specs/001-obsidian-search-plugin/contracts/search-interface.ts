@@ -44,6 +44,12 @@ export interface SearchQuery {
 
   /** File path filters (regex patterns) */
   pathFilters?: string[];
+
+  /** Minimum semantic similarity (0 to 1); overrides the plugin setting for this query */
+  minScore?: number;
+
+  /** Keyword rule for this query; overrides the plugin setting */
+  keywordMatch?: 'all' | 'any';
 }
 
 export interface SearchResponse {

@@ -102,6 +102,12 @@ export interface SearchPluginSettings {
   /** Enable hybrid search by default */
   defaultToHybrid: boolean;
 
+  /** Minimum semantic similarity (0 to 1) for a chunk to count as a match */
+  minSemanticScore: number;
+
+  /** Whether a keyword match needs every query term or any one of them */
+  keywordMatch: 'all' | 'any';
+
   /** Index update performance settings */
   performance: {
     /** Batch size for processing documents */

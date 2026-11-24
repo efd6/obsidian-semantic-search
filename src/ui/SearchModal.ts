@@ -11,6 +11,8 @@ export class SearchModal extends Modal implements ISearchModal {
     private results: SearchResult[] = [];
     private searchHistory: string[] = [];
     private showExcerpts: boolean = true;
+    private minScore: number = 0;
+    private keywordMatch: 'all' | 'any' = 'all';
     private debouncedSearch: () => void;
 
     constructor(app: App, searchEngine: SemanticSearchEngine) {
@@ -24,7 +26,11 @@ export class SearchModal extends Modal implements ISearchModal {
         modalEl.addClass('semantic-search-modal');
         contentEl.empty();
 
+        this.minScore = this.searchEngine.minSemanticScore;
+        this.keywordMatch = this.searchEngine.keywordMatch;
+
         this.createSearchInput();
+        this.createSearchOptions();
         this.createResultsContainer();
         this.searchInput.focus();
     }
@@ -53,6 +59,38 @@ export class SearchModal extends Modal implements ISearchModal {
 
         this.searchInput.addEventListener('input', this.debouncedSearch);
         this.searchInput.addEventListener('keydown', (event: KeyboardEvent) => this.handleKeydown(event));
+    }
+
+    private createSearchOptions(): void {
+        const options = this.contentEl.createEl('div', { cls: 'search-modal-options' });
+
+        const scoreLabel = options.createEl('label', { cls: 'search-modal-option' });
+        scoreLabel.createEl('span', { text: 'Min score' });
+        const slider = scoreLabel.createEl('input', {
+            type: 'range',
+            attr: { min: '0', max: '1', step: '0.05' }
+        });
+        slider.value = String(this.minScore);
+        const scoreValue = scoreLabel.createEl('span', {
+            cls: 'search-modal-score-value',
+            text: this.minScore.toFixed(2)
+        });
+        slider.addEventListener('input', () => {
+            this.minScore = Number(slider.value);
+            scoreValue.setText(this.minScore.toFixed(2));
+            this.debouncedSearch();
+        });
+
+        const matchLabel = options.createEl('label', { cls: 'search-modal-option' });
+        matchLabel.createEl('span', { text: 'Keywords' });
+        const select = matchLabel.createEl('select');
+        select.createEl('option', { value: 'all', text: 'All terms' });
+        select.createEl('option', { value: 'any', text: 'Any term' });
+        select.value = this.keywordMatch;
+        select.addEventListener('change', () => {
+            this.keywordMatch = select.value === 'any' ? 'any' : 'all';
+            void this.performSearch();
+        });
     }
 
     private createResultsContainer(): void {
@@ -243,7 +281,9 @@ export class SearchModal extends Modal implements ISearchModal {
             const searchQuery: SearchQuery = {
                 text: query,
                 limit: 20,
-                mode: 'hybrid'
+                mode: 'hybrid',
+                minScore: this.minScore,
+                keywordMatch: this.keywordMatch
             };
 
             const response: SearchResponse = await this.searchEngine.hybridSearch(searchQuery);

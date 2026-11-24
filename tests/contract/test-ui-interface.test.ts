@@ -347,6 +347,8 @@ describe('PluginSettings Interface Contract', () => {
       chunkSize: 500,
       updateInterval: 1000,
       defaultToHybrid: false,
+      minSemanticScore: 0.3,
+      keywordMatch: 'all',
       performance: {
         batchSize: 100,
         maxMemoryMB: 512,
@@ -379,6 +381,8 @@ describe('SearchPluginSettings Type Contract', () => {
       chunkSize: 500,
       updateInterval: 2000,
       defaultToHybrid: true,
+      minSemanticScore: 0.5,
+      keywordMatch: 'any',
       performance: {
         batchSize: 200,
         maxMemoryMB: 1024,

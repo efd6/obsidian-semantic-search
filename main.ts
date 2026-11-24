@@ -23,6 +23,8 @@ const DEFAULT_SETTINGS: SearchPluginSettings = {
     chunkSize: 1800,
     updateInterval: 30_000,
     defaultToHybrid: true,
+    minSemanticScore: 0.3,
+    keywordMatch: 'all' as const,
     performance: {
         batchSize: 10,
         maxMemoryMB: 512,
@@ -168,6 +170,8 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
 
         this.semanticSearchEngine = new SemanticSearchEngine();
         this.semanticSearchEngine.storage = this.indexStorage;
+        this.semanticSearchEngine.minSemanticScore = this.settings.minSemanticScore;
+        this.semanticSearchEngine.keywordMatch = this.settings.keywordMatch;
 
         // Connect DocumentIndexer to SemanticSearchEngine for proper data flow
         this.documentIndexer.searchEngine = this.semanticSearchEngine;
@@ -383,6 +387,12 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         }
         if (this.semanticSearchEngine && newSettings.maxResults) {
             this.semanticSearchEngine.maxResults = newSettings.maxResults;
+        }
+        if (this.semanticSearchEngine && newSettings.minSemanticScore !== undefined) {
+            this.semanticSearchEngine.minSemanticScore = newSettings.minSemanticScore;
+        }
+        if (this.semanticSearchEngine && newSettings.keywordMatch !== undefined) {
+            this.semanticSearchEngine.keywordMatch = newSettings.keywordMatch;
         }
     }
 

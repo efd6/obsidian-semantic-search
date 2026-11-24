@@ -27,6 +27,8 @@ function createDefaultSettings(): any {
     chunkSize: 500,
     updateInterval: 5000,
     defaultToHybrid: true,
+    minSemanticScore: 0.3,
+    keywordMatch: 'all',
     performance: { batchSize: 100, maxMemoryMB: 500, backgroundProcessing: true },
     ui: { showInSidebar: true, searchHotkey: 'Ctrl+Shift+F', snippetLength: 150, theme: 'default' },
     advanced: { model: { name: 'all-MiniLM-L6-v2', quantization: 'fp32' }, debugMode: false, fileFilters: [] },

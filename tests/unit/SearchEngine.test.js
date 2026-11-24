@@ -388,4 +388,88 @@ describe('SemanticSearchEngine', () => {
             }
         });
     });
+
+    describe('relevance cutoffs', () => {
+        // The mocked query embedding is 0.1 in every position and the mocked
+        // Chunk.cosineSimilarity is a dot product, so a chunk embedding of
+        // [x, 0, 0, 0] scores exactly x/10.
+        function addChunk(id, content, x) {
+            const { Document } = require('../../src/models/Document');
+            const { Chunk } = require('../../src/models/Chunk');
+            searchEngine.addDocument(new Document({
+                id: `doc-${id}`, filePath: `${id}.md`, title: id, content
+            }));
+            searchEngine.addChunk(new Chunk({
+                id: `chunk-${id}`, documentId: `doc-${id}`, content,
+                embedding: new Float32Array([x, 0, 0, 0])
+            }));
+        }
+
+        test('semantic search drops chunks scoring below the cutoff', async () => {
+            addChunk('weak', 'unrelated text', 2.9);
+            addChunk('strong', 'relevant text', 5);
+
+            const response = await searchEngine.semanticSearch({ text: 'query', limit: 10, mode: 'semantic' });
+
+            expect(response.results.map(r => r.filePath)).toEqual(['strong.md']);
+            expect(response.totalMatches).toBe(1);
+        });
+
+        test('semantic search keeps chunks scoring exactly at the cutoff', async () => {
+            addChunk('edge', 'edge text', 3);
+
+            const response = await searchEngine.semanticSearch({ text: 'query', limit: 10, mode: 'semantic' });
+
+            expect(response.results.map(r => r.filePath)).toEqual(['edge.md']);
+        });
+
+        test('keyword search requires every query term', async () => {
+            addChunk('both', 'a dog and related things', 0);
+            addChunk('one', 'some related things', 0);
+
+            const response = await searchEngine.hybridSearch({ text: 'dog related', limit: 10 });
+
+            expect(response.results.map(r => r.filePath)).toEqual(['both.md']);
+        });
+
+        test('keyword search matches on any term when keywordMatch is any', async () => {
+            addChunk('one', 'some related things', 0);
+            searchEngine.keywordMatch = 'any';
+
+            const response = await searchEngine.hybridSearch({ text: 'dog related', limit: 10 });
+
+            expect(response.results.map(r => r.filePath)).toEqual(['one.md']);
+        });
+
+        test('minSemanticScore moves the semantic cutoff', async () => {
+            addChunk('weak', 'unrelated text', 2.9);
+            searchEngine.minSemanticScore = 0.2;
+
+            const response = await searchEngine.semanticSearch({ text: 'query', limit: 10, mode: 'semantic' });
+
+            expect(response.results.map(r => r.filePath)).toEqual(['weak.md']);
+        });
+
+        test('per-query minScore and keywordMatch override the engine defaults', async () => {
+            addChunk('weak', 'some related things', 2.9);
+
+            const strict = await searchEngine.hybridSearch({ text: 'dog related', limit: 10 });
+            const loose = await searchEngine.hybridSearch({
+                text: 'dog related', limit: 10, minScore: 0.2, keywordMatch: 'any'
+            });
+
+            expect(strict.results).toEqual([]);
+            expect(loose.results.map(r => r.filePath)).toEqual(['weak.md']);
+            expect(searchEngine.minSemanticScore).toBe(0.3);
+            expect(searchEngine.keywordMatch).toBe('all');
+        });
+
+        test('hybrid search returns nothing when no chunk matches', async () => {
+            addChunk('one', 'some related things', 0);
+
+            const response = await searchEngine.hybridSearch({ text: 'dog related', limit: 10 });
+
+            expect(response.results).toEqual([]);
+        });
+    });
 });

@@ -25,6 +25,13 @@ export class SemanticSearchEngine implements SearchEngine {
   storage?: unknown;
   maxResults: number = 10;
 
+  // Minimum cosine similarity for a chunk to count as a semantic match. On the
+  // test vault, unrelated queries peak near 0.23 and real topics start near 0.33.
+  minSemanticScore: number = 0.3;
+
+  // Whether a keyword match needs every query term ('all') or any one ('any').
+  keywordMatch: 'all' | 'any' = 'all';
+
   constructor() {
     this.embeddingEngine = EmbeddingEngine.getInstance();
     void this.initializeEmbedder();
@@ -163,19 +170,19 @@ export class SemanticSearchEngine implements SearchEngine {
       };
     });
 
-
-    return results.filter(result => result.score > -1); // Accept all scores for testing
+    return results.filter(result => result.score >= (query.minScore ?? this.minSemanticScore));
   }
 
   private keywordSearch(query: SearchQuery): SearchResult[] {
     const terms = query.text.toLowerCase().split(/\s+/);
+    const keywordMatch = query.keywordMatch ?? this.keywordMatch;
     const results: SearchResult[] = [];
 
     for (const chunk of this.chunks.values()) {
       const content = chunk.content.toLowerCase();
       const matches = terms.filter(term => content.includes(term)).length;
 
-      if (matches > 0) {
+      if (keywordMatch === 'all' ? matches === terms.length : matches > 0) {
         const doc = this.documents.get(chunk.documentId)!;
         const score = matches / terms.length;
 

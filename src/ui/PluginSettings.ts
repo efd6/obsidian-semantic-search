@@ -83,6 +83,30 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
                     this.settings.defaultToHybrid = value;
                     await this.saveCallback(this.settings);
                 }));
+
+        new Setting(this.containerEl)
+            .setName('Minimum semantic score')
+            .setDesc('Hide semantic matches scoring below this similarity. Raise it if unrelated notes appear; lower it if relevant notes are missing.')
+            .addSlider(slider => slider
+                .setLimits(0, 1, 0.05)
+                .setValue(this.settings.minSemanticScore)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.settings.minSemanticScore = value;
+                    await this.saveCallback(this.settings);
+                }));
+
+        new Setting(this.containerEl)
+            .setName('Keyword matching')
+            .setDesc('"All terms" needs every query word in the same passage. "Any term" matches on a single word, which finds more but includes common words.')
+            .addDropdown(dropdown => dropdown
+                .addOption('all', 'All terms')
+                .addOption('any', 'Any term')
+                .setValue(this.settings.keywordMatch)
+                .onChange(async (value) => {
+                    this.settings.keywordMatch = value as 'all' | 'any';
+                    await this.saveCallback(this.settings);
+                }));
     }
 
     private addPerformanceSettings(): void {
@@ -265,6 +289,8 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
             chunkSize: 500,
             updateInterval: 5000,
             defaultToHybrid: true,
+            minSemanticScore: 0.3,
+            keywordMatch: 'all',
             performance: { batchSize: 100, maxMemoryMB: 500, backgroundProcessing: true },
             ui: { showInSidebar: true, searchHotkey: 'Ctrl+Shift+F', snippetLength: 150, theme: 'default' },
             advanced: { model: { name: 'all-MiniLM-L6-v2', quantization: 'fp32' }, debugMode: false, fileFilters: [] }
