@@ -76,6 +76,53 @@ describe('index hygiene', () => {
     jest.restoreAllMocks();
   });
 
+  describe('ignore rules', () => {
+    it('indexDocument does not index an ignored note', async () => {
+      const tv = newTestVault(
+        { 'private/secret.md': 'secret content', 'notes/public.md': 'public content' },
+        { '.obsidian-search-ignore': 'private/' },
+      );
+      const { indexer, engine } = newIndexer(tv);
+
+      // FileWatcher calls indexDocument directly for created, modified and
+      // renamed notes, so the rules must hold here, not only in indexVault.
+      await indexer.indexDocument('private/secret.md');
+      await indexer.indexDocument('notes/public.md');
+
+      expect(indexedPaths(engine)).toEqual(['notes/public.md']);
+    });
+
+    it('re-indexing a note that has become ignored removes it', async () => {
+      const tv = newTestVault({ 'notes/a.md': 'some content' });
+      const { indexer, engine, ignore } = newIndexer(tv);
+
+      await indexer.indexDocument('notes/a.md');
+      expect(indexedPaths(engine)).toEqual(['notes/a.md']);
+
+      tv.dotfiles['.obsidian-search-ignore'] = 'notes/';
+      ignore.clearCache();
+      await indexer.indexDocument('notes/a.md');
+
+      expect(indexedPaths(engine)).toEqual([]);
+      expect(engine.getChunkCount()).toBe(0);
+    });
+
+    it('indexVault removes notes that have become ignored', async () => {
+      const tv = newTestVault({ 'notes/a.md': 'aaa', 'private/b.md': 'bbb' });
+      const { indexer, engine, ignore } = newIndexer(tv);
+
+      await indexer.indexVault();
+      expect(indexedPaths(engine)).toEqual(['notes/a.md', 'private/b.md']);
+
+      tv.dotfiles['.obsidian-search-ignore'] = 'private/';
+      ignore.clearCache();
+      await indexer.indexVault();
+
+      expect(indexedPaths(engine)).toEqual(['notes/a.md']);
+      expect(indexedText(engine)).not.toContain('bbb');
+    });
+  });
+
   describe('document IDs', () => {
     it('keeps notes whose paths collided under the old 32-bit hash apart', async () => {
       // "Aa" and "BB" have the same String.hashCode-style hash.

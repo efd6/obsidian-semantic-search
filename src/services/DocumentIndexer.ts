@@ -64,6 +64,8 @@ export class DocumentIndexer implements IDocumentIndexer {
         if (shouldIndex) {
           filteredFiles.push(file);
         } else {
+          // Drop anything indexed before the file was ignored.
+          this.searchEngine?.removeDocument?.(Document.idFor(file.path));
           console.log(`⏭️ Skipping ignored file: ${file.path}`);
         }
       }
@@ -172,6 +174,20 @@ export class DocumentIndexer implements IDocumentIndexer {
     const startTime = Date.now();
 
     try {
+      // Every route into the index comes through here, including the file
+      // watcher, so this is where the ignore rules must be applied. A note that
+      // has become ignored is also removed.
+      if (this.ignorePatternProcessor && !await this.ignorePatternProcessor.shouldIndexFile(filePath)) {
+        this.searchEngine?.removeDocument?.(Document.idFor(filePath));
+        return {
+          filePath,
+          success: false,
+          error: 'File is excluded by ignore rules',
+          chunkCount: 0,
+          timeElapsed: Date.now() - startTime
+        };
+      }
+
       const file = this.vault.getAbstractFileByPath(filePath);
       if (!file?.path.endsWith('.md')) {
         throw new Error('File not found or not a markdown file');
