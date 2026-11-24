@@ -4,10 +4,12 @@
  * and IgnorePatternProcessor; only the embedding model is replaced.
  */
 
-import { Vault } from 'obsidian';
+import { App, Vault } from 'obsidian';
 import { DocumentIndexer } from '../../src/services/DocumentIndexer';
 import { SemanticSearchEngine } from '../../src/services/SemanticSearchEngine';
 import { IgnorePatternProcessor } from '../../src/services/IgnorePatternProcessor';
+import { DataManager } from '../../src/services/DataManager';
+import { EmbeddingEngine } from '../../src/services/EmbeddingEngine';
 
 jest.mock('../../src/services/EmbeddingEngine', () => {
   const engine = {
@@ -167,4 +169,29 @@ describe('index hygiene', () => {
     });
   });
 
+  describe('clearing', () => {
+    it('Clear Search Index Data empties the index that search uses', async () => {
+      const tv = newTestVault({ 'a.md': 'alpha content', 'b.md': 'bravo content' });
+      const { indexer, engine } = newIndexer(tv);
+      await indexer.indexVault();
+      expect(engine.getDocumentCount()).toBe(2);
+
+      const dm = new DataManager({} as App, undefined, engine);
+      await dm.clearAllData();
+
+      expect(engine.getDocumentCount()).toBe(0);
+      expect(engine.getChunkCount()).toBe(0);
+      const response = await engine.hybridSearch({ text: 'alpha', limit: 10, keywordMatch: 'any' });
+      expect(response.results).toEqual([]);
+      expect(dm.getClearStatus().itemsCleared).toBe(2);
+    });
+
+    it('clearing the index also drops cached embeddings, whose keys are note text', () => {
+      const engine = new SemanticSearchEngine();
+
+      engine.clear();
+
+      expect(EmbeddingEngine.getInstance().clearCache).toHaveBeenCalled();
+    });
+  });
 });

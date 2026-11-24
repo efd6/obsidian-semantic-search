@@ -161,8 +161,6 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.embeddingEngine = embeddingEngine;
 
         // Phase 2: Initialize services that depend on Phase 1 results
-        this.dataManager = new DataManager(this.app, this.indexStorage.db ?? undefined);
-
         this.documentIndexer = new DocumentIndexer(this.app.vault);
         this.documentIndexer.storage = this.indexStorage;
         this.documentIndexer.embeddingEngine = this.embeddingEngine;
@@ -177,6 +175,14 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.documentIndexer.searchEngine = this.semanticSearchEngine;
 
         this.fileWatcher = new FileWatcher(this.app.vault, this.documentIndexer);
+
+        this.dataManager = new DataManager(this.app, this.indexStorage.db ?? undefined, {
+            clear: (): number => {
+                // Stop a running scan so it doesn't refill the index straight away.
+                this.documentIndexer.cancelBackgroundIndexing();
+                return this.semanticSearchEngine.clear();
+            },
+        });
     }
 
     private async initializeIndexStorage(): Promise<IndexStorage> {

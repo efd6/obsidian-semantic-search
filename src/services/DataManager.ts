@@ -3,18 +3,26 @@ import { DataClearOperation } from '../types/data-management';
 import { RxDatabase } from 'rxdb';
 import { Modal, App, Notice } from 'obsidian';
 
+// searchIndex is the in-memory index that search reads from. clear empties it
+// and returns the number of documents removed.
+interface searchIndex {
+	clear(): number;
+}
+
 export class DataManager {
 	private app: App;
 	private database: RxDatabase<any> | null = null;
+	private index: searchIndex | null = null;
 	private clearOperation: DataClearOperation = {
 		status: 'idle',
 		progress: 0,
 		itemsCleared: 0
 	};
 
-	constructor(app: App, database?: RxDatabase<any>) {
+	constructor(app: App, database?: RxDatabase<any>, index?: searchIndex) {
 		this.app = app;
 		this.database = database ?? null;
+		this.index = index ?? null;
 	}
 
 	async clearAllData(): Promise<void> {
@@ -30,14 +38,19 @@ export class DataManager {
 		};
 
 		try {
-			if (!this.database) {
+			if (!this.database && !this.index) {
 				throw new Error('Database not initialized');
 			}
 
 			let totalItemsCleared = 0;
 
+			// The in-memory index is what search uses, so clear it first.
+			if (this.index) {
+				totalItemsCleared += this.index.clear();
+			}
+
 			// Clear documents collection
-			const documentsCollection = this.database.collections.documents;
+			const documentsCollection = this.database?.collections.documents;
 			if (documentsCollection) {
 				const documentCount = await documentsCollection.count().exec();
 				await documentsCollection.remove();
@@ -50,7 +63,7 @@ export class DataManager {
 			}
 
 			// Clear chunks collection
-			const chunksCollection = this.database.collections.chunks;
+			const chunksCollection = this.database?.collections.chunks;
 			if (chunksCollection) {
 				const chunkCount = await chunksCollection.count().exec();
 				await chunksCollection.remove();
@@ -63,7 +76,7 @@ export class DataManager {
 			}
 
 			// Clear embeddings collection
-			const embeddingsCollection = this.database.collections.embeddings;
+			const embeddingsCollection = this.database?.collections.embeddings;
 			if (embeddingsCollection) {
 				const embeddingCount = await embeddingsCollection.count().exec();
 				await embeddingsCollection.remove();
@@ -77,7 +90,9 @@ export class DataManager {
 
 			this.clearOperation = {
 				...this.clearOperation,
-				status: 'complete'
+				status: 'complete',
+				progress: 100,
+				itemsCleared: totalItemsCleared
 			};
 
 			new Notice(`Successfully cleared ${this.clearOperation.itemsCleared} items from search index`);

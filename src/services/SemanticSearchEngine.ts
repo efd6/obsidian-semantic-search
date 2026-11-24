@@ -285,6 +285,17 @@ export class SemanticSearchEngine implements SearchEngine {
     this.queryCache.clear();
   }
 
+  // clear removes everything from the index and the caches that hold note or
+  // query text, and returns the number of documents removed.
+  clear(): number {
+    const removed = this.documents.size;
+    this.documents.clear();
+    this.chunks.clear();
+    this.queryCache.clear();
+    this.embeddingEngine.clearCache();
+    return removed;
+  }
+
   getSearchStats(): { totalSearches: number; averageSearchTime: number } {
     return {
       totalSearches: this.searchCount,
