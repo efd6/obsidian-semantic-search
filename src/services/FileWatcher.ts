@@ -1,4 +1,4 @@
-import { TAbstractFile, TFile, Vault, Component } from 'obsidian';
+import { EventRef, TAbstractFile, TFile, Vault } from 'obsidian';
 import { FileWatcher as IFileWatcher } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
 import { DocumentIndexer } from './DocumentIndexer';
 
@@ -6,7 +6,7 @@ import { DocumentIndexer } from './DocumentIndexer';
  * FileWatcher service for real-time file monitoring and index updates
  * Implements debouncing and batch processing to optimize performance
  */
-export class FileWatcher extends Component implements IFileWatcher {
+export class FileWatcher implements IFileWatcher {
   private vault: Vault;
   private indexer: DocumentIndexer;
   private isWatching = false;
@@ -14,9 +14,11 @@ export class FileWatcher extends Component implements IFileWatcher {
   private updateInterval = 30_000; // 30 seconds default
   private batchTimer: NodeJS.Timeout | null = null;
   private debounceTimers = new Map<string, NodeJS.Timeout>();
+  // eventRefs holds the vault handlers registered by start, so stop can
+  // remove them and they don't outlive the plugin.
+  private eventRefs: EventRef[] = [];
 
   constructor(vault: Vault, indexer: DocumentIndexer) {
-    super();
     this.vault = vault;
     this.indexer = indexer;
   }
@@ -25,37 +27,28 @@ export class FileWatcher extends Component implements IFileWatcher {
     if (this.isWatching) return;
 
     this.isWatching = true;
-    this.registerEvent(
+    this.eventRefs = [
       this.vault.on('create', (file: TAbstractFile) => {
         if (this.isMarkdownFile(file)) {
           this.handleFileChange(file.path);
         }
-      })
-    );
-
-    this.registerEvent(
+      }),
       this.vault.on('modify', (file: TAbstractFile) => {
         if (this.isMarkdownFile(file)) {
           this.handleFileChange(file.path);
         }
-      })
-    );
-
-    this.registerEvent(
+      }),
       this.vault.on('delete', (file: TAbstractFile) => {
         if (this.isMarkdownFile(file)) {
           this.handleFileDelete(file.path);
         }
-      })
-    );
-
-    this.registerEvent(
+      }),
       this.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
         if (this.isMarkdownFile(file)) {
           this.handleFileRename(oldPath, file.path);
         }
-      })
-    );
+      }),
+    ];
 
     this.scheduleBatchProcess();
   }
@@ -64,6 +57,10 @@ export class FileWatcher extends Component implements IFileWatcher {
     if (!this.isWatching) return;
 
     this.isWatching = false;
+    for (const ref of this.eventRefs) {
+      this.vault.offref(ref);
+    }
+    this.eventRefs = [];
     this.clearBatchTimer();
     this.clearAllDebounceTimers();
     this.pendingFiles.clear();

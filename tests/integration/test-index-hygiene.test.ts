@@ -8,6 +8,7 @@ import { App, Vault } from 'obsidian';
 import { DocumentIndexer } from '../../src/services/DocumentIndexer';
 import { SemanticSearchEngine } from '../../src/services/SemanticSearchEngine';
 import { IgnorePatternProcessor } from '../../src/services/IgnorePatternProcessor';
+import { FileWatcher } from '../../src/services/FileWatcher';
 import { DataManager } from '../../src/services/DataManager';
 import { EmbeddingEngine } from '../../src/services/EmbeddingEngine';
 
@@ -44,8 +45,10 @@ function newTestVault(files: Record<string, string>, dotfiles: Record<string, st
       exists: (path: string): Promise<boolean> => Promise.resolve(path in dotfiles),
       read: (path: string): Promise<string> => Promise.resolve(dotfiles[path]),
     },
-    on: jest.fn(),
+    // on returns an EventRef, as in Obsidian, so offref can be checked.
+    on: jest.fn((name: string, fn: unknown) => ({ e: vault, name, fn })),
     off: jest.fn(),
+    offref: jest.fn(),
   } as unknown as Vault;
   return { files, dotfiles, vault };
 }
@@ -181,6 +184,32 @@ describe('index hygiene', () => {
       await indexer.indexVault();
       expect(logged()).toMatch(/health\/diagnosis\.md/);
       expect(logged()).toMatch(/hidden\/plans\.md/);
+    });
+  });
+
+  describe('vault event handlers', () => {
+    it('FileWatcher.stop unregisters every handler that start registered', () => {
+      const tv = newTestVault({});
+      const watcher = new FileWatcher(tv.vault, newIndexer(tv).indexer);
+
+      watcher.start();
+      const refs = (tv.vault.on as jest.Mock).mock.results.map(r => r.value as unknown);
+      watcher.stop();
+
+      expect(refs).toHaveLength(4);
+      expect((tv.vault.offref as jest.Mock).mock.calls.map(c => c[0] as unknown)).toEqual(refs);
+    });
+
+    it('DocumentIndexer.stopFileWatching unregisters every handler that startFileWatching registered', () => {
+      const tv = newTestVault({});
+      const { indexer } = newIndexer(tv);
+
+      indexer.startFileWatching();
+      const refs = (tv.vault.on as jest.Mock).mock.results.map(r => r.value as unknown);
+      indexer.stopFileWatching();
+
+      expect(refs).toHaveLength(3);
+      expect((tv.vault.offref as jest.Mock).mock.calls.map(c => c[0] as unknown)).toEqual(refs);
     });
   });
 

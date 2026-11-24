@@ -1,4 +1,4 @@
-import { TAbstractFile, TFile, Vault } from 'obsidian';
+import { EventRef, TAbstractFile, TFile, Vault } from 'obsidian';
 import {
   DocumentIndexer as IDocumentIndexer,
   IndexingResult,
@@ -27,6 +27,7 @@ interface CompatibleEmbeddingEngine {
 export class DocumentIndexer implements IDocumentIndexer {
   private vault: Vault;
   private fileWatcher: boolean = false;
+  private fileEventRefs: EventRef[] = [];
   private status: IndexingStatus = this.createInitialStatus();
   chunkSize: number = 1800; // Characters, leaving room for overlap while staying under 2048 limit
   private readonly overlapSize = 200; // Characters
@@ -285,17 +286,20 @@ export class DocumentIndexer implements IDocumentIndexer {
     this.status.fileWatchingEnabled = true;
 
     // Set up file watching with 30-second intervals
-    this.vault.on('modify', (file) => void this.handleFileChange(file));
-    this.vault.on('create', (file) => void this.handleFileChange(file));
-    this.vault.on('delete', (file) => void this.handleFileDelete(file));
+    this.fileEventRefs = [
+      this.vault.on('modify', (file) => void this.handleFileChange(file)),
+      this.vault.on('create', (file) => void this.handleFileChange(file)),
+      this.vault.on('delete', (file) => void this.handleFileDelete(file)),
+    ];
   }
 
   stopFileWatching(): void {
     this.fileWatcher = false;
     this.status.fileWatchingEnabled = false;
-    this.vault.off('modify', (file: TAbstractFile) => void this.handleFileChange(file));
-    this.vault.off('create', (file: TAbstractFile) => void this.handleFileChange(file));
-    this.vault.off('delete', (file: TAbstractFile) => void this.handleFileDelete(file));
+    for (const ref of this.fileEventRefs) {
+      this.vault.offref(ref);
+    }
+    this.fileEventRefs = [];
   }
 
   private createInitialStatus(): IndexingStatus {

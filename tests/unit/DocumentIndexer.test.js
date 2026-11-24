@@ -29,8 +29,9 @@ const mockVault = {
     getMarkdownFiles: jest.fn().mockReturnValue([]),
     getAbstractFileByPath: jest.fn(),
     read: jest.fn(),
-    on: jest.fn(),
-    off: jest.fn()
+    on: jest.fn((name, fn) => ({ name, fn })),
+    off: jest.fn(),
+    offref: jest.fn()
 };
 
 // Mock Obsidian types for use in tests
@@ -152,11 +153,11 @@ describe('DocumentIndexer', () => {
             expect(mockVault.on).toHaveBeenCalledWith('create', expect.any(Function));
             expect(mockVault.on).toHaveBeenCalledWith('delete', expect.any(Function));
 
+            const refs = mockVault.on.mock.results.map(r => r.value);
             indexer.stopFileWatching();
             expect(indexer.getIndexingStatus().fileWatchingEnabled).toBe(false);
-            expect(mockVault.off).toHaveBeenCalledWith('modify', expect.any(Function));
-            expect(mockVault.off).toHaveBeenCalledWith('create', expect.any(Function));
-            expect(mockVault.off).toHaveBeenCalledWith('delete', expect.any(Function));
+            // The handlers registered by startFileWatching are the ones removed.
+            expect(mockVault.offref.mock.calls.map(c => c[0])).toEqual(refs);
         });
 
         test('prevents multiple file watching instances', () => {

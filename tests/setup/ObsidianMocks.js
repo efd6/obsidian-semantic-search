@@ -149,7 +149,12 @@ class MockVault {
             this.eventHandlers.set(event, []);
         }
         this.eventHandlers.get(event).push(callback);
-        return { unsubscribe: jest.fn() };
+        // Like Obsidian, return an EventRef that offref can remove.
+        return { e: this, name: event, fn: callback };
+    }
+
+    offref(ref) {
+        this.off(ref.name, ref.fn);
     }
 
     off(event, callback) {
