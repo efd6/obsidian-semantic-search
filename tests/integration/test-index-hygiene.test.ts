@@ -145,6 +145,20 @@ describe('index hygiene', () => {
     });
   });
 
+  describe('embedding failures', () => {
+    it('a note whose embedding fails is not indexed with made-up embeddings', async () => {
+      const tv = newTestVault({ 'a.md': 'alpha content' });
+      const { indexer, engine } = newIndexer(tv);
+      indexer.embeddingEngine = { generateEmbedding: () => Promise.reject(new Error('model unavailable')) };
+
+      const result = await indexer.indexDocument('a.md');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('model unavailable');
+      expect(indexedPaths(engine)).toEqual([]);
+    });
+  });
+
   describe('document IDs', () => {
     it('keeps notes whose paths collided under the old 32-bit hash apart', async () => {
       // "Aa" and "BB" have the same String.hashCode-style hash.

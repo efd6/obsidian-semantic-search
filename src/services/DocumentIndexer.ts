@@ -325,21 +325,12 @@ export class DocumentIndexer implements IDocumentIndexer {
       const startOffset = i;
       const endOffset = Math.min(i + chunkContent.length, content.length);
 
-      // Generate embedding using embedding engine or fallback to hash-based approach
-      let embedding: Float32Array;
-      if (this.embeddingEngine && typeof this.embeddingEngine.generateEmbedding === 'function') {
-        try {
-          console.log(`🧠 Generating TensorFlow.js embedding for chunk ${chunks.length + 1}...`);
-          embedding = await this.embeddingEngine.generateEmbedding(chunkContent);
-          console.log(`✅ TensorFlow.js embedding generated (${embedding.length} dimensions)`);
-        } catch (error) {
-          console.warn(`⚠️ TensorFlow.js embedding failed, using test embedding:`, error);
-          embedding = this.generateTestEmbedding(chunkContent);
-        }
-      } else {
-        console.log(`🔧 No embedding engine available, using test embedding for chunk ${chunks.length + 1}`);
-        embedding = this.generateTestEmbedding(chunkContent);
-      }
+      // Without an embedding engine (as in some tests) use a deterministic
+      // stand-in. When the engine fails, the note fails: made-up embeddings
+      // would put meaningless entries in the index.
+      const embedding = typeof this.embeddingEngine?.generateEmbedding === 'function'
+        ? await this.embeddingEngine.generateEmbedding(chunkContent)
+        : this.generateTestEmbedding(chunkContent);
 
       chunks.push(Chunk.create(
         documentId, // Use the passed document ID

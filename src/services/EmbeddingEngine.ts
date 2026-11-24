@@ -22,6 +22,9 @@ export class EmbeddingEngine {
     private static instance: EmbeddingEngine;
     private model: use.UniversalSentenceEncoder | null = null;
     private isLoading = false;
+    // loadError holds the reason the last model load failed, so requests fail
+    // rather than wait for a model that is not coming.
+    private loadError: Error | null = null;
     private loadPromise: Promise<use.UniversalSentenceEncoder> | null = null;
     // embeddingCache maps text to its embedding. It is keyed on the whole text:
     // a shortened key lets texts that share an opening, such as notes made
@@ -50,11 +53,18 @@ export class EmbeddingEngine {
         }
 
         this.isLoading = true;
+        this.loadError = null;
         this.loadPromise = this.loadModel();
         try {
             this.model = await this.loadPromise;
             // Process any queued requests once model is ready
             void this.processQueue();
+        } catch (error: unknown) {
+            this.loadError = error instanceof Error ? error : new Error(String(error));
+            for (const request of this.requestQueue.splice(0)) {
+                request.reject(this.loadError);
+            }
+            throw this.loadError;
         } finally {
             this.isLoading = false;
             this.loadPromise = null;
@@ -216,6 +226,8 @@ export class EmbeddingEngine {
         const cached = this.embeddingCache.get(text);
         if (cached) return cached;
 
+        if (this.loadError) throw this.loadError;
+
         // If model is not ready, queue the request
         if (!this.isReady()) {
             return new Promise<Float32Array>((resolve, reject) => {
@@ -355,6 +367,7 @@ export class EmbeddingEngine {
         }
 
         this.isLoading = false;
+        this.loadError = null;
         this.loadPromise = null;
     }
 }

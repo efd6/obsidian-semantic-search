@@ -208,6 +208,20 @@ describe('EmbeddingEngine', () => {
         });
     });
 
+    describe('model load failure', () => {
+        test('waiting and later requests fail instead of waiting forever', async () => {
+            const use = require('@tensorflow-models/universal-sentence-encoder');
+            await engine.cleanup();
+            use.load.mockRejectedValueOnce(new Error('download refused'));
+
+            const waiting = engine.generateEmbedding('queued before the model loaded');
+            await expect(engine.initialize()).rejects.toThrow('download refused');
+
+            await expect(waiting).rejects.toThrow('download refused');
+            await expect(engine.generateEmbedding('asked after the failure')).rejects.toThrow('download refused');
+        });
+    });
+
     describe('resource management', () => {
         test('cleanup method works if available', async () => {
             if (typeof engine.cleanup === 'function') {
