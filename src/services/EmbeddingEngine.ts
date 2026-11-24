@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
+import { downloadModel, downloadVocab } from './ModelDownload';
 
 export interface EmbeddingResult {
     embeddings: number[][];
@@ -16,7 +17,6 @@ const MODEL_CACHE_KEY = 'indexeddb://use-model-v1';
 const VOCAB_DB_NAME = 'semantic-search-cache';
 const VOCAB_STORE_NAME = 'vocab';
 const VOCAB_ENTRY_KEY = 'use-vocab-v1';
-const VOCAB_CDN_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/universal_sentence_encoder/vocab.json';
 
 export class EmbeddingEngine {
     private static instance: EmbeddingEngine;
@@ -79,54 +79,46 @@ export class EmbeddingEngine {
             await tf.ready();
             console.log('TensorFlow.js backend:', tf.getBackend());
 
+            // Without IndexedDB (Node, as in the tests) the library downloads
+            // the model itself. Obsidian always has IndexedDB, so the plugin
+            // only ever uses the verified download below.
             if (!this.canUseCache()) {
                 return await use.load();
             }
 
-            const [modelCached, vocabData] = await Promise.all([
+            const [modelCached, cachedVocab] = await Promise.all([
                 this.isModelCached(),
                 this.loadCachedVocab(),
             ]);
 
-            if (modelCached && vocabData) {
-                console.log('Loading model from IndexedDB cache');
-                const vocabBlobUrl = URL.createObjectURL(
-                    new Blob([JSON.stringify(vocabData)], { type: 'application/json' })
-                );
-                try {
-                    const model = await use.load({
-                        modelUrl: MODEL_CACHE_KEY,
-                        vocabUrl: vocabBlobUrl,
-                    });
-                    console.log('✓ Model loaded from cache');
-                    return model;
-                } finally {
-                    URL.revokeObjectURL(vocabBlobUrl);
+            let vocab = cachedVocab;
+            if (!modelCached || !vocab) {
+                // Check both downloads before caching either, so a refused
+                // download leaves nothing behind.
+                console.log('Model not cached — downloading and verifying');
+                const [artifacts, fetchedVocab] = await Promise.all([downloadModel(), downloadVocab()]);
+                const [cache] = tf.io.getSaveHandlers(MODEL_CACHE_KEY);
+                if (!cache?.save) {
+                    throw new Error('no IndexedDB model cache available');
                 }
+                await cache.save(artifacts);
+                await this.cacheVocab(fetchedVocab);
+                vocab = fetchedVocab;
             }
 
-            console.log('Cache miss — downloading model from CDN');
-            const fetchedVocab: unknown = await fetch(VOCAB_CDN_URL)
-                .then((r): Promise<unknown> => r.json() as Promise<unknown>);
             const vocabBlobUrl = URL.createObjectURL(
-                new Blob([JSON.stringify(fetchedVocab)], { type: 'application/json' })
+                new Blob([JSON.stringify(vocab)], { type: 'application/json' })
             );
-            let model: use.UniversalSentenceEncoder;
             try {
-                model = await use.load({ vocabUrl: vocabBlobUrl });
+                const model = await use.load({
+                    modelUrl: MODEL_CACHE_KEY,
+                    vocabUrl: vocabBlobUrl,
+                });
+                console.log('✓ Model loaded from IndexedDB cache');
+                return model;
             } finally {
                 URL.revokeObjectURL(vocabBlobUrl);
             }
-
-            // Best-effort cache for next load
-            type GraphModelHost = { model: { save(loc: string): Promise<void> } };
-            await Promise.allSettled([
-                (model as unknown as GraphModelHost).model.save(MODEL_CACHE_KEY),
-                this.cacheVocab(fetchedVocab),
-            ]);
-            console.log('✓ Model downloaded and cached');
-
-            return model;
         } catch (error: unknown) {
             console.error('Model loading failed:', error instanceof Error ? error.message : String(error));
             throw new Error(`TensorFlow.js Universal Sentence Encoder initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

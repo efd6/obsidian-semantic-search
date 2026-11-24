@@ -185,6 +185,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         // This allows the plugin to become functional while model loads in background
         void engine.initialize().catch(error => {
             console.error('EmbeddingEngine initialization failed:', error);
+            new Notice(`Semantic Search: could not load the embedding model. ${error instanceof Error ? error.message : String(error)}`, 0);
         });
         return engine;
     }
