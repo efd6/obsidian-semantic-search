@@ -354,8 +354,12 @@ export class DocumentIndexer implements IDocumentIndexer {
   private async createChunks(content: string, documentId: string): Promise<Chunk[]> {
     const chunks: Chunk[] = [];
 
-    // Chunk by characters instead of words to respect the 2048 character limit
-    for (let i = 0; i < content.length; i += this.chunkSize - this.overlapSize) {
+    // Chunk by characters instead of words to respect the 2048 character limit.
+    // The overlap is at most half a chunk, so each step moves forward even
+    // when the chunk size is no larger than the usual overlap.
+    const overlap = Math.min(this.overlapSize, Math.floor(this.chunkSize / 2));
+    const step = Math.max(1, this.chunkSize - overlap);
+    for (let i = 0; i < content.length; i += step) {
       const chunkContent = content.slice(i, i + this.chunkSize).trim();
 
       // Skip empty chunks

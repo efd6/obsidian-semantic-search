@@ -184,7 +184,21 @@ describe('index hygiene', () => {
     });
   });
 
-    describe('embedding failures', () => {
+    describe('chunking', () => {
+    it('a chunk size no larger than the overlap still moves through the note', async () => {
+      const tv = newTestVault({ 'a.md': 'x'.repeat(1000) });
+      const { indexer, engine } = newIndexer(tv);
+      indexer.chunkSize = 200;
+
+      const result = await indexer.indexDocument('a.md');
+
+      expect(result.success).toBe(true);
+      // Steps of 100 characters over 1,000 characters.
+      expect(engine.getChunkCount()).toBe(10);
+    });
+  });
+
+  describe('embedding failures', () => {
     it('a note whose embedding fails is not indexed with made-up embeddings', async () => {
       const tv = newTestVault({ 'a.md': 'alpha content' });
       const { indexer, engine } = newIndexer(tv);
