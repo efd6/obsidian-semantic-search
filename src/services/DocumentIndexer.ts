@@ -238,12 +238,9 @@ export class DocumentIndexer implements IDocumentIndexer {
   async removeDocument(filePath: string): Promise<boolean> {
     try {
       await Promise.resolve(); // Satisfy require-await rule
-      // Generate document ID from file path (same as Document.generateId())
-      const documentId = createHash('sha256').update(filePath).digest('hex');
-
       // Remove from search engine if available
       if (this.searchEngine?.removeDocument) {
-        this.searchEngine.removeDocument(documentId);
+        this.searchEngine.removeDocument(Document.idFor(filePath));
       }
 
       this.status.lastUpdate = new Date();

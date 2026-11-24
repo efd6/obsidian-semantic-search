@@ -58,7 +58,14 @@ export class Document implements IDocument {
   }
 
   private generateId(): string {
-    return createHash('sha256').update(this.filePath).digest('hex');
+    return Document.idFor(this.filePath);
+  }
+
+  // idFor returns the ID of the document at filePath. The vault path is unique
+  // within a vault, so using it directly means two notes can never share an ID,
+  // which a hash of the path cannot promise.
+  static idFor(filePath: string): string {
+    return filePath;
   }
 
   private calculateChecksum(): string {
