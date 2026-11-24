@@ -176,7 +176,7 @@ describe('index hygiene', () => {
       await indexer.indexVault();
       expect(engine.getDocumentCount()).toBe(2);
 
-      const dm = new DataManager({} as App, undefined, engine);
+      const dm = new DataManager({} as App, engine);
       await dm.clearAllData();
 
       expect(engine.getDocumentCount()).toBe(0);

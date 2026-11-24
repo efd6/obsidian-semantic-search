@@ -23,24 +23,18 @@ function createMockApp(): App {
   } as any;
 }
 
-function mockDatabase(): any {
-  const emptyCollection = {
-    count: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
-    remove: jest.fn().mockResolvedValue(undefined),
-  };
+// testIndex is a stand-in for the search index that counts as cleared n
+// documents, optionally after a delay.
+function testIndex(n = 0, delay = 0): { clear: jest.Mock } {
   return {
-    collections: {
-      documents: emptyCollection,
-      chunks: emptyCollection,
-      embeddings: emptyCollection,
-    },
+    clear: jest.fn(() => new Promise(resolve => setTimeout(() => resolve(n), delay))),
   };
 }
 
 describe('Clear Data Command Integration', () => {
   describe('DataManager.clearAllData', () => {
-    it('should complete when database has empty collections', async () => {
-      const dm = new DataManager(createMockApp(), mockDatabase());
+    it('should complete when the index is empty', async () => {
+      const dm = new DataManager(createMockApp(), testIndex());
       await expect(dm.clearAllData()).resolves.not.toThrow();
 
       const status = dm.getClearStatus();
@@ -48,46 +42,31 @@ describe('Clear Data Command Integration', () => {
       expect(status.progress).toBe(100);
     });
 
-    it('should reject when no database is configured', async () => {
+    it('should reject when no index is configured', async () => {
       const dm = new DataManager(createMockApp());
-      await expect(dm.clearAllData()).rejects.toThrow('Database not initialized');
+      await expect(dm.clearAllData()).rejects.toThrow('Search index not available');
 
       const status = dm.getClearStatus();
       expect(status.status).toBe('failed');
     });
 
-    it('should track progress through collections', async () => {
-      const makeCol = (n: number) => ({
-        count: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(n) }),
-        remove: jest.fn().mockResolvedValue(undefined),
-      });
-      const db = {
-        collections: {
-          documents: makeCol(10),
-          chunks: makeCol(50),
-          embeddings: makeCol(50),
-        },
-      };
-
-      const dm = new DataManager(createMockApp(), db as any);
+    it('should report the number of documents cleared', async () => {
+      const index = testIndex(10);
+      const dm = new DataManager(createMockApp(), index);
       await dm.clearAllData();
 
       const status = dm.getClearStatus();
+      expect(index.clear).toHaveBeenCalledTimes(1);
       expect(status.status).toBe('complete');
       expect(status.progress).toBe(100);
-      expect(status.itemsCleared).toBe(110);
+      expect(status.itemsCleared).toBe(10);
     });
   });
 
   describe('Concurrent Operation Prevention (FR-012)', () => {
     it('should prevent multiple simultaneous clear operations', async () => {
-      const db = mockDatabase();
-      // Slow down the first collection removal to create a window.
-      db.collections.documents.remove.mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 50)),
-      );
-
-      const dm = new DataManager(createMockApp(), db);
+      // A slow clear leaves a window for the second call.
+      const dm = new DataManager(createMockApp(), testIndex(0, 50));
 
       const first = dm.clearAllData();
       const second = dm.clearAllData();
@@ -104,7 +83,7 @@ describe('Clear Data Command Integration', () => {
 
   describe('resetClearStatus', () => {
     it('should allow a new clear after reset', async () => {
-      const dm = new DataManager(createMockApp(), mockDatabase());
+      const dm = new DataManager(createMockApp(), testIndex());
       await dm.clearAllData();
       expect(dm.getClearStatus().status).toBe('complete');
 

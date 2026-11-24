@@ -24,10 +24,6 @@ interface CompatibleEmbeddingEngine {
   generateEmbedding?(content: string): Promise<Float32Array>;
 }
 
-interface CompatibleStorage {
-  [key: string]: unknown;
-}
-
 export class DocumentIndexer implements IDocumentIndexer {
   private vault: Vault;
   private fileWatcher: boolean = false;
@@ -38,7 +34,6 @@ export class DocumentIndexer implements IDocumentIndexer {
   private cancelIndexing = false;
 
   // Plugin compatibility properties
-  storage?: CompatibleStorage;
   embeddingEngine?: CompatibleEmbeddingEngine;
   searchEngine?: CompatibleSearchEngine;
   ignorePatternProcessor?: IgnorePatternProcessor;

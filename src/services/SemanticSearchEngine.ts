@@ -22,7 +22,6 @@ export class SemanticSearchEngine implements SearchEngine {
   private totalSearchTime: number = 0;
 
   // Plugin compatibility properties
-  storage?: unknown;
   maxResults: number = 10;
 
   // Minimum cosine similarity for a chunk to count as a semantic match. On the

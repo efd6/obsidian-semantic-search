@@ -47,13 +47,12 @@ describe('DataManager contract', () => {
   });
 
   describe('clearAllData', () => {
-    it('should reject when no database is configured', async () => {
-      await expect(dm.clearAllData()).rejects.toThrow('Database not initialized');
+    it('should reject when no index is configured', async () => {
+      await expect(dm.clearAllData()).rejects.toThrow('Search index not available');
     });
 
     it('should throw when a clear is already in progress', async () => {
-      // First call sets status to 'clearing' and then throws because
-      // there's no database — but the status stays 'clearing'.
+      // First call throws because there's no index.
       await expect(dm.clearAllData()).rejects.toThrow();
 
       // Manually reset to 'clearing' to simulate an in-progress op.

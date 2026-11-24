@@ -19,26 +19,18 @@ function createMockApp(): App {
   } as any;
 }
 
-function mockDatabase(removeDelay = 0): any {
-  const makeCollection = () => ({
-    count: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(5) }),
-    remove: jest.fn().mockImplementation(
-      () => new Promise(resolve => setTimeout(resolve, removeDelay)),
-    ),
-  });
+// testIndex is a stand-in for the search index that counts as cleared five
+// documents after delay milliseconds.
+function testIndex(delay = 0): { clear: () => Promise<number> } {
   return {
-    collections: {
-      documents: makeCollection(),
-      chunks: makeCollection(),
-      embeddings: makeCollection(),
-    },
+    clear: () => new Promise(resolve => setTimeout(() => resolve(5), delay)),
   };
 }
 
 describe('Concurrent Operation Prevention Integration', () => {
   describe('Clear Operation Concurrency Control', () => {
     it('should prevent multiple simultaneous clear operations', async () => {
-      const dm = new DataManager(createMockApp(), mockDatabase(50));
+      const dm = new DataManager(createMockApp(), testIndex(50));
 
       const ops = [dm.clearAllData(), dm.clearAllData(), dm.clearAllData()];
       const results = await Promise.allSettled(ops);
@@ -51,7 +43,7 @@ describe('Concurrent Operation Prevention Integration', () => {
     });
 
     it('should track clear operation status correctly', async () => {
-      const dm = new DataManager(createMockApp(), mockDatabase());
+      const dm = new DataManager(createMockApp(), testIndex());
 
       expect(dm.getClearStatus().status).toBe('idle');
       await dm.clearAllData();
@@ -60,7 +52,7 @@ describe('Concurrent Operation Prevention Integration', () => {
     });
 
     it('should allow new operation after reset', async () => {
-      const dm = new DataManager(createMockApp(), mockDatabase());
+      const dm = new DataManager(createMockApp(), testIndex());
 
       await dm.clearAllData();
       dm.resetClearStatus();
@@ -83,9 +75,9 @@ describe('Concurrent Operation Prevention Integration', () => {
       await expect(dm.clearAllData()).rejects.toThrow();
       expect(dm.getClearStatus().status).toBe('failed');
 
-      // Reset and provide a working database.
+      // Reset and provide a working index.
       dm.resetClearStatus();
-      (dm as any).database = mockDatabase();
+      (dm as any).index = testIndex();
 
       await expect(dm.clearAllData()).resolves.not.toThrow();
       expect(dm.getClearStatus().status).toBe('complete');

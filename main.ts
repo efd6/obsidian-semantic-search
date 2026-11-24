@@ -7,7 +7,6 @@ import { DocumentIndexer } from './src/services/DocumentIndexer';
 import { SemanticSearchEngine } from './src/services/SemanticSearchEngine';
 import { EmbeddingEngine } from './src/services/EmbeddingEngine';
 import { FileWatcher } from './src/services/FileWatcher';
-import { IndexStorage } from './src/services/IndexStorage';
 import { IgnorePatternProcessor } from './src/services/IgnorePatternProcessor';
 import { DataManager } from './src/services/DataManager';
 
@@ -52,7 +51,6 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
     semanticSearchEngine!: SemanticSearchEngine;
     embeddingEngine!: EmbeddingEngine;
     fileWatcher!: FileWatcher;
-    indexStorage!: IndexStorage;
     ignorePatternProcessor!: IgnorePatternProcessor;
     dataManager!: DataManager;
     ribbonIcon: HTMLElement | null = null;
@@ -122,11 +120,9 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
 
             // Clean up services
             this.fileWatcher?.dispose();
-            await this.indexStorage?.close();
             await this.embeddingEngine?.cleanup();
 
             // Clear service references
-            this.indexStorage = undefined as any as IndexStorage;
             this.embeddingEngine = undefined as any as EmbeddingEngine;
             this.fileWatcher = undefined as any as FileWatcher;
             this.searchView = undefined as any as SearchView;
@@ -149,25 +145,16 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
     }
 
     private async initializeServices(): Promise<void> {
-        // Phase 1: Initialize independent services in parallel
-        const [indexStorage, ignorePatternProcessor] = await Promise.all([
-            this.initializeIndexStorage(),
-            this.initializeIgnorePatternProcessor()
-        ]);
-        const embeddingEngine = this.initializeEmbeddingEngine();
-
-        this.indexStorage = indexStorage;
-        this.ignorePatternProcessor = ignorePatternProcessor;
-        this.embeddingEngine = embeddingEngine;
+        // Phase 1: Initialize independent services
+        this.ignorePatternProcessor = await this.initializeIgnorePatternProcessor();
+        this.embeddingEngine = this.initializeEmbeddingEngine();
 
         // Phase 2: Initialize services that depend on Phase 1 results
         this.documentIndexer = new DocumentIndexer(this.app.vault);
-        this.documentIndexer.storage = this.indexStorage;
         this.documentIndexer.embeddingEngine = this.embeddingEngine;
         this.documentIndexer.ignorePatternProcessor = this.ignorePatternProcessor;
 
         this.semanticSearchEngine = new SemanticSearchEngine();
-        this.semanticSearchEngine.storage = this.indexStorage;
         this.semanticSearchEngine.minSemanticScore = this.settings.minSemanticScore;
         this.semanticSearchEngine.keywordMatch = this.settings.keywordMatch;
 
@@ -176,19 +163,13 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
 
         this.fileWatcher = new FileWatcher(this.app.vault, this.documentIndexer);
 
-        this.dataManager = new DataManager(this.app, this.indexStorage.db ?? undefined, {
+        this.dataManager = new DataManager(this.app, {
             clear: (): number => {
                 // Stop a running scan so it doesn't refill the index straight away.
                 this.documentIndexer.cancelBackgroundIndexing();
                 return this.semanticSearchEngine.clear();
             },
         });
-    }
-
-    private async initializeIndexStorage(): Promise<IndexStorage> {
-        const storage = new IndexStorage();
-        await storage.initialize();
-        return storage;
     }
 
     private async initializeIgnorePatternProcessor(): Promise<IgnorePatternProcessor> {

@@ -107,16 +107,13 @@ describe('Plugin Lifecycle Integration', () => {
             await plugin.onload();
 
             // Assert: All services should be initialized
-            expect(plugin.indexStorage).toBeDefined();
             expect(plugin.embeddingEngine).toBeDefined();
             expect(plugin.documentIndexer).toBeDefined();
             expect(plugin.semanticSearchEngine).toBeDefined();
             expect(plugin.fileWatcher).toBeDefined();
 
             // Check that services are properly connected
-            expect(plugin.documentIndexer.storage).toBe(plugin.indexStorage);
             expect(plugin.documentIndexer.embeddingEngine).toBe(plugin.embeddingEngine);
-            expect(plugin.semanticSearchEngine.storage).toBe(plugin.indexStorage);
             expect(plugin.semanticSearchEngine.embeddingEngine).toBe(plugin.embeddingEngine);
         }, 30000);
 
@@ -382,7 +379,6 @@ describe('Plugin Lifecycle Integration', () => {
 
             // Track resource usage
             const initialResources = {
-                storage: plugin.indexStorage,
                 embedding: plugin.embeddingEngine,
                 fileWatcher: plugin.fileWatcher
             };
@@ -391,7 +387,6 @@ describe('Plugin Lifecycle Integration', () => {
             await plugin.onunload();
 
             // Resources should be cleaned up
-            expect(plugin.indexStorage).toBeUndefined();
             expect(plugin.embeddingEngine).toBeUndefined();
             expect(plugin.fileWatcher).toBeUndefined();
         }, 10000);
