@@ -11,7 +11,6 @@
 		"build:prod": "npm run build && npm run bundle-check",
 		"test": "jest",
 		"test:watch": "jest --watch",
-		"test:performance": "jest tests/performance/",
 		"lint": "eslint src/",
 		"lint:fix": "eslint src/ --fix",
 		"typecheck": "tsc --noEmit",

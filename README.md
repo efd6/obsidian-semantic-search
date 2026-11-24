@@ -151,8 +151,6 @@ npm run build
 # Run tests
 npm test
 
-# Run performance tests
-npm run test:performance
 
 # Lint code
 npm run lint
@@ -187,7 +185,6 @@ tests/
 - **Contract Tests**: Verify interface compliance
 - **Unit Tests**: Test individual utilities and functions
 - **Integration Tests**: Validate component interactions
-- **Performance Tests**: Ensure scalability requirements
 
 ## Troubleshooting
 
