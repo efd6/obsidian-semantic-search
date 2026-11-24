@@ -16,39 +16,10 @@ import { PluginSettings } from './src/ui/PluginSettings';
 import { SearchModal } from './src/ui/SearchModal';
 import { SearchView, SEARCH_VIEW_TYPE } from './src/ui/SearchView';
 import { StatusBarDisplayImpl } from './src/ui/StatusBarDisplay';
-
-const DEFAULT_SETTINGS: SearchPluginSettings = {
-    enabled: true,
-    maxResults: 10,
-    chunkSize: 1800,
-    updateInterval: 30_000,
-    defaultToHybrid: true,
-    minSemanticScore: 0.3,
-    keywordMatch: 'all' as const,
-    persistIndex: false,
-    performance: {
-        batchSize: 10,
-        maxMemoryMB: 512,
-        backgroundProcessing: true,
-    },
-    ui: {
-        showInSidebar: true,
-        searchHotkey: 'Ctrl+Shift+S',
-        snippetLength: 200,
-        theme: 'default' as const,
-    },
-    advanced: {
-        model: {
-            name: 'universal-sentence-encoder',
-            quantization: 'fp32' as const,
-        },
-        debugMode: false,
-        fileFilters: ['*.md'],
-    },
-};
+import { defaultSettings, withDefaults } from './src/settings';
 
 export default class SemanticSearchPluginMain extends Plugin implements SemanticSearchPlugin {
-    settings: SearchPluginSettings = DEFAULT_SETTINGS;
+    settings: SearchPluginSettings = defaultSettings();
     documentIndexer!: DocumentIndexer;
     semanticSearchEngine!: SemanticSearchEngine;
     embeddingEngine!: EmbeddingEngine;
@@ -141,7 +112,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
 
     private async loadSettings(): Promise<void> {
         const data = await this.loadData() as Partial<SearchPluginSettings> | null;
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
+        this.settings = withDefaults(data);
     }
 
     private async saveSettings(): Promise<void> {

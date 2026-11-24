@@ -507,9 +507,8 @@ class MockSetting {
     setName() { return this; }
     setDesc() { return this; }
     addToggle(cb) { cb({ setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
-    addDropdown(cb) { cb({ addOption: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
     addSlider(cb) { cb({ setLimits: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), setDynamicTooltip: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
-    addDropdown(cb) { cb({ addOptions: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
+    addDropdown(cb) { cb({ addOption: jest.fn().mockReturnThis(), addOptions: jest.fn().mockReturnThis(), setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis() }); return this; }
     addButton(cb) { cb({ setButtonText: jest.fn().mockReturnThis(), setCta: jest.fn().mockReturnThis(), setWarning: jest.fn().mockReturnThis(), setDisabled: jest.fn().mockReturnThis(), onClick: jest.fn().mockReturnThis() }); return this; }
     addText(cb) { cb({ setValue: jest.fn().mockReturnThis(), onChange: jest.fn().mockReturnThis(), setPlaceholder: jest.fn().mockReturnThis() }); return this; }
 }

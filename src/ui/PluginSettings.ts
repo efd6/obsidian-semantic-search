@@ -2,6 +2,7 @@ import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { PluginSettings as IPluginSettings, SearchPluginSettings } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
 import { DataManager } from '../services/DataManager';
 import { EmbeddingEngine } from '../services/EmbeddingEngine';
+import { defaultSettings } from '../settings';
 
 export class PluginSettings extends PluginSettingTab implements IPluginSettings {
     private settings: SearchPluginSettings;
@@ -294,18 +295,6 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
     }
 
     private getDefaultSettings(): SearchPluginSettings {
-        return {
-            enabled: true,
-            maxResults: 20,
-            chunkSize: 500,
-            updateInterval: 5000,
-            defaultToHybrid: true,
-            minSemanticScore: 0.3,
-            keywordMatch: 'all',
-            persistIndex: false,
-            performance: { batchSize: 100, maxMemoryMB: 500, backgroundProcessing: true },
-            ui: { showInSidebar: true, searchHotkey: 'Ctrl+Shift+F', snippetLength: 150, theme: 'default' },
-            advanced: { model: { name: 'all-MiniLM-L6-v2', quantization: 'fp32' }, debugMode: false, fileFilters: [] }
-        };
+        return defaultSettings();
     }
 }
