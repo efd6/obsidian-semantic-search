@@ -1,17 +1,6 @@
 import { IgnorePatternProcessor } from '../../../src/services/IgnorePatternProcessor';
 import { Vault, TFile } from 'obsidian';
 
-// Mock Obsidian classes
-class MockTFile implements Partial<TFile> {
-  path: string;
-  name: string;
-
-  constructor(path: string) {
-    this.path = path;
-    this.name = path.split('/').pop() || '';
-  }
-}
-
 class MockVault implements Partial<Vault> {
   private ignoreFiles: { [key: string]: string } = {};
 
@@ -19,16 +8,20 @@ class MockVault implements Partial<Vault> {
     this.ignoreFiles[filename] = content;
   }
 
-  getAbstractFileByPath(path: string): TFile | null {
-    if (this.ignoreFiles[path]) {
-      return new MockTFile(path) as TFile;
-    }
+  // Like Obsidian, paths starting with a dot are not in the vault's file
+  // tree, so the ignore files are only reachable through the adapter.
+  getAbstractFileByPath(): TFile | null {
     return null;
   }
 
-  async read(file: TFile): Promise<string> {
-    return this.ignoreFiles[file.path] || '';
-  }
+  adapter = {
+    exists: async (path: string): Promise<boolean> => path in this.ignoreFiles,
+    read: async (path: string): Promise<string> => {
+      const content = this.ignoreFiles[path];
+      if (content === undefined) throw new Error(`File not found: ${path}`);
+      return content;
+    },
+  } as unknown as Vault['adapter'];
 }
 
 describe('IgnorePatternProcessor', (): void => {

@@ -1,5 +1,5 @@
 import { IgnorePattern } from '../types/ignore-patterns';
-import { TFile, Vault } from 'obsidian';
+import { Vault } from 'obsidian';
 import ignore from 'ignore';
 
 export class IgnorePatternProcessor {
@@ -30,22 +30,16 @@ export class IgnorePatternProcessor {
 		return this.patterns;
 	}
 
+	// The ignore files start with a dot, so they are not in the vault's file
+	// tree and getAbstractFileByPath never finds them. Read them through the
+	// adapter instead.
 	private async loadPatternsFromFile(filename: '.obsidianignore' | '.obsidian-search-ignore'): Promise<void> {
 		try {
-			const file = this.vault.getAbstractFileByPath(filename);
-
-			// Check if it's a TFile or mock TFile (for testing)
-			const isValidFile = file && (
-				(file instanceof TFile) ||
-				(file.constructor?.name === 'TFile') ||
-				(file.path && file.name)
-			);
-
-			if (!isValidFile) {
+			if (!await this.vault.adapter.exists(filename)) {
 				return;
 			}
 
-			const content = await this.vault.read(file as TFile);
+			const content = await this.vault.adapter.read(filename);
 			const patterns = this.parseIgnoreFile(content, filename);
 			this.patterns.push(...patterns);
 		} catch (error) {

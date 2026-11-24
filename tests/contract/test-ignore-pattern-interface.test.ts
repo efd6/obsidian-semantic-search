@@ -11,15 +11,18 @@ jest.mock('obsidian');
 
 function createMockVault(files: Record<string, string> = {}): Vault {
   return {
-    getAbstractFileByPath: jest.fn((path: string) => {
-      if (path in files) return { path, name: path };
-      return null;
-    }),
-    read: jest.fn((file: any) => {
-      const content = files[file.path];
-      if (content !== undefined) return Promise.resolve(content);
-      return Promise.reject(new Error('File not found'));
-    }),
+    // Like Obsidian, paths starting with a dot are not in the vault's file
+    // tree, so the ignore files are only reachable through the adapter.
+    getAbstractFileByPath: jest.fn(() => null),
+    read: jest.fn(() => Promise.reject(new Error('not in vault tree'))),
+    adapter: {
+      exists: jest.fn((path: string) => Promise.resolve(path in files)),
+      read: jest.fn((path: string) => {
+        const content = files[path];
+        if (content !== undefined) return Promise.resolve(content);
+        return Promise.reject(new Error('File not found'));
+      }),
+    },
   } as any;
 }
 
