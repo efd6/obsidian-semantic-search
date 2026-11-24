@@ -186,6 +186,7 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
 
         new Setting(this.containerEl)
             .setName('Debug Mode')
+            .setDesc('Log each note\'s path to the developer console while indexing. Paths can reveal what your notes are about.')
             .addToggle(toggle => toggle
                 .setValue(this.settings.advanced.debugMode)
                 .onChange(async (value) => {

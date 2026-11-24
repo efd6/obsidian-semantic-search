@@ -30,6 +30,9 @@ export class DocumentIndexer implements IDocumentIndexer {
   private status: IndexingStatus = this.createInitialStatus();
   chunkSize: number = 1800; // Characters, leaving room for overlap while staying under 2048 limit
   private readonly overlapSize = 200; // Characters
+  // debug turns on per-note logging. Note paths can be sensitive, so they are
+  // only logged when it is set.
+  debug = false;
   private backgroundIndexingActive = false;
   private cancelIndexing = false;
 
@@ -61,7 +64,7 @@ export class DocumentIndexer implements IDocumentIndexer {
         } else {
           // Drop anything indexed before the file was ignored.
           this.searchEngine?.removeDocument?.(Document.idFor(file.path));
-          console.log(`⏭️ Skipping ignored file: ${file.path}`);
+          this.log(`⏭️ Skipping ignored file: ${file.path}`);
         }
       }
       mdFiles = filteredFiles;
@@ -83,19 +86,19 @@ export class DocumentIndexer implements IDocumentIndexer {
       }
 
       this.status.progress.currentDocument = file.path;
-      console.log(`📄 Indexing (${index + 1}/${mdFiles.length}): ${file.path}`);
+      this.log(`📄 Indexing (${index + 1}/${mdFiles.length}): ${file.path}`);
       try {
         const result = await this.indexDocument(file.path);
         results.push(result);
         if (!result.success && result.error) {
           failures.push({ filePath: file.path, error: result.error, errorType: 'parsing' });
-          console.warn(`❌ Failed to index: ${file.path} - ${result.error}`);
+          this.log(`❌ Failed to index: ${file.path} - ${result.error}`);
         } else {
-          console.log(`✅ Indexed: ${file.path} (${result.chunkCount} chunks)`);
+          this.log(`✅ Indexed: ${file.path} (${result.chunkCount} chunks)`);
         }
       } catch (error) {
         failures.push({ filePath: file.path, error: String(error), errorType: 'parsing' });
-        console.error(`❌ Error indexing: ${file.path}`, error);
+        this.log(`❌ Error indexing: ${file.path}`, error);
       }
       this.status.progress.processedCount++;
 
@@ -125,6 +128,12 @@ export class DocumentIndexer implements IDocumentIndexer {
       timeElapsed,
       stats: await this.calculateStats()
     };
+  }
+
+  private log(...args: unknown[]): void {
+    if (this.debug) {
+      console.log(...args);
+    }
   }
 
   async indexVaultInBackground(): Promise<void> {

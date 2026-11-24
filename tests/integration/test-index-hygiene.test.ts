@@ -159,6 +159,31 @@ describe('index hygiene', () => {
     });
   });
 
+  describe('logging', () => {
+    it('keeps note paths out of the console unless debug logging is on', async () => {
+      const tv = newTestVault(
+        { 'health/diagnosis.md': 'private content', 'hidden/plans.md': 'more content' },
+        { '.obsidian-search-ignore': 'hidden/' },
+      );
+      const { indexer } = newIndexer(tv);
+      const spies = [
+        console.log as jest.Mock,
+        jest.spyOn(console, 'warn').mockImplementation(() => {}),
+        jest.spyOn(console, 'error').mockImplementation(() => {}),
+      ];
+      const logged = (): string => spies.flatMap(spy => spy.mock.calls.flat()).map(String).join('\n');
+
+      await indexer.indexVault();
+      expect(logged()).not.toMatch(/diagnosis|plans/);
+
+      for (const spy of spies) spy.mockClear();
+      indexer.debug = true;
+      await indexer.indexVault();
+      expect(logged()).toMatch(/health\/diagnosis\.md/);
+      expect(logged()).toMatch(/hidden\/plans\.md/);
+    });
+  });
+
   describe('document IDs', () => {
     it('keeps notes whose paths collided under the old 32-bit hash apart', async () => {
       // "Aa" and "BB" have the same String.hashCode-style hash.

@@ -153,6 +153,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.documentIndexer = new DocumentIndexer(this.app.vault);
         this.documentIndexer.embeddingEngine = this.embeddingEngine;
         this.documentIndexer.ignorePatternProcessor = this.ignorePatternProcessor;
+        this.documentIndexer.debug = this.settings.advanced.debugMode;
 
         this.semanticSearchEngine = new SemanticSearchEngine();
         this.semanticSearchEngine.minSemanticScore = this.settings.minSemanticScore;
@@ -369,7 +370,11 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.settings = { ...this.settings, ...newSettings };
         await this.saveSettings();
 
-        // Apply settings to services
+        // Apply settings to services. The settings tab edits the settings
+        // object in place, so apply values rather than look for changes.
+        if (this.documentIndexer) {
+            this.documentIndexer.debug = this.settings.advanced.debugMode;
+        }
         if (this.documentIndexer && newSettings.chunkSize) {
             this.documentIndexer.chunkSize = newSettings.chunkSize;
         }
