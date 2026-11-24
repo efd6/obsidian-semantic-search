@@ -1,4 +1,4 @@
-import { SearchPluginSettings } from '../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { SearchPluginSettings } from './types/ui-interface';
 
 // defaultSettings returns a new copy of the default settings. It returns a
 // new copy each time because the settings tab edits settings in place, and

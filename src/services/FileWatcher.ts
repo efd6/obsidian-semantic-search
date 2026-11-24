@@ -1,5 +1,5 @@
 import { EventRef, TAbstractFile, TFile, Vault } from 'obsidian';
-import { FileWatcher as IFileWatcher } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
+import { FileWatcher as IFileWatcher } from '../types/indexing-interface';
 import { DocumentIndexer } from './DocumentIndexer';
 
 /**

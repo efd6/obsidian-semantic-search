@@ -22,7 +22,7 @@ import {
   ObsidianIntegration,
   VaultAdapter,
   FileStats
-} from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+} from '../../src/types/ui-interface';
 
 // Mock implementations that intentionally don't fully satisfy contracts (for TDD)
 class MockSearchUI implements SearchUI {

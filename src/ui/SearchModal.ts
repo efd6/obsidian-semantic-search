@@ -1,6 +1,6 @@
 import { App, Modal, debounce, setIcon } from 'obsidian';
-import { SearchResponse, SearchResult, SearchQuery, TextHighlight } from '../../specs/001-obsidian-search-plugin/contracts/search-interface';
-import { SearchModal as ISearchModal } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { SearchResponse, SearchResult, SearchQuery, TextHighlight } from '../types/search-interface';
+import { SearchModal as ISearchModal } from '../types/ui-interface';
 import { SemanticSearchEngine } from '../services/SemanticSearchEngine';
 
 export class SearchModal extends Modal implements ISearchModal {

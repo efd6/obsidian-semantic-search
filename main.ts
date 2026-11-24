@@ -1,6 +1,6 @@
 import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
-import { SemanticSearchPlugin, PluginStatus, IndexRebuildResult } from './specs/001-obsidian-search-plugin/contracts/plugin-interface';
-import { SearchPluginSettings } from './specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { SemanticSearchPlugin, PluginStatus, IndexRebuildResult } from './src/types/plugin-interface';
+import { SearchPluginSettings } from './src/types/ui-interface';
 
 // Services
 import { DocumentIndexer } from './src/services/DocumentIndexer';

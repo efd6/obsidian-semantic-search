@@ -6,7 +6,7 @@ import {
   SearchResult,
   TextHighlight,
   SearchStats
-} from '../../specs/001-obsidian-search-plugin/contracts/search-interface';
+} from '../types/search-interface';
 import { Chunk } from '../models/Chunk';
 import { Document } from '../models/Document';
 import { SearchResult as ModelSearchResult, MatchType } from '../models/SearchResult';

@@ -1,5 +1,5 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { PluginSettings as IPluginSettings, SearchPluginSettings } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { PluginSettings as IPluginSettings, SearchPluginSettings } from '../types/ui-interface';
 import { DataManager } from '../services/DataManager';
 import { EmbeddingEngine } from '../services/EmbeddingEngine';
 import { defaultSettings } from '../settings';

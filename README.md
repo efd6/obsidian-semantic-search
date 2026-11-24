@@ -164,23 +164,18 @@ npm run lint
 src/
 ├── models/           # Data models (Document, Chunk, Tag, etc.)
 ├── services/         # Core services (Indexer, Search, Embedding, saved index)
+├── types/            # Shared TypeScript interfaces
 └── ui/               # User interface components
 
 tests/
 ├── unit/             # Unit tests
 ├── integration/      # Integration tests
 └── contract/         # Interface contract tests
-
-specs/
-└── 001-obsidian-search-plugin/
-    ├── spec.md       # Feature specification
-    ├── research.md   # Technical research
-    └── contracts/    # TypeScript interfaces
 ```
 
 ### Adding New Features
 
-1. **Define Interface**: Add contracts in `specs/001-obsidian-search-plugin/contracts/`
+1. **Define Interface**: Add or extend interfaces in `src/types/`
 2. **Write Tests**: Create failing tests following TDD approach
 3. **Implement Model**: Add data models in `src/models/`
 4. **Create Service**: Implement business logic in `src/services/`

@@ -1,7 +1,7 @@
 import { ItemView, WorkspaceLeaf, debounce, setIcon } from 'obsidian';
-import { IndexingStatus } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
-import { SearchResponse, SearchResult, SearchQuery } from '../../specs/001-obsidian-search-plugin/contracts/search-interface';
-import { SearchUI, SearchView as ISearchView } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { IndexingStatus } from '../types/indexing-interface';
+import { SearchResponse, SearchResult, SearchQuery } from '../types/search-interface';
+import { SearchUI, SearchView as ISearchView } from '../types/ui-interface';
 import { SemanticSearchEngine } from '../services/SemanticSearchEngine';
 
 export const SEARCH_VIEW_TYPE = 'semantic-search';

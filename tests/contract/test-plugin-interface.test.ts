@@ -1,4 +1,4 @@
-import { SemanticSearchPlugin, PluginStatus, IndexRebuildResult } from '../../specs/001-obsidian-search-plugin/contracts/plugin-interface';
+import { SemanticSearchPlugin, PluginStatus, IndexRebuildResult } from '../../src/types/plugin-interface';
 import { MockApp, MockPlugin } from '../setup';
 
 /**

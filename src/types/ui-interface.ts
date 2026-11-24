@@ -220,7 +220,7 @@ export type PluginEventType =
 export interface PluginEvent {
   type: PluginEventType;
   timestamp: Date;
-  data?: any;
+  data?: unknown;
 }
 
 /**

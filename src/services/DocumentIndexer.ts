@@ -7,7 +7,7 @@ import {
   DocumentMetadata,
   IndexingFailure,
   IndexStats
-} from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
+} from '../types/indexing-interface';
 import { Chunk } from '../models/Chunk';
 import { Document } from '../models/Document';
 import { BrowserCrypto, createHash } from '../utils/crypto';

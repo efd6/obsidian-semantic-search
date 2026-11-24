@@ -1,6 +1,6 @@
 import { Plugin, Notice } from 'obsidian';
-import { PluginStatus } from '../../specs/001-obsidian-search-plugin/contracts/plugin-interface';
-import { StatusBarDisplay } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { PluginStatus } from '../types/plugin-interface';
+import { StatusBarDisplay } from '../types/ui-interface';
 
 export class StatusBarDisplayImpl implements StatusBarDisplay {
   private statusBarItem: HTMLElement;

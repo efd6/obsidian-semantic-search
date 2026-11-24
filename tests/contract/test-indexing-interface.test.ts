@@ -13,7 +13,7 @@ import {
   DocumentMetadata,
   IndexStats,
   FileWatcher
-} from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
+} from '../../src/types/indexing-interface';
 import { MockApp, MockPlugin } from '../setup';
 
 // Mock DocumentIndexer implementation that satisfies the interface

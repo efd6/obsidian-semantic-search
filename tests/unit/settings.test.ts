@@ -1,5 +1,5 @@
 import { App, Plugin } from 'obsidian';
-import { SearchPluginSettings } from '../../specs/001-obsidian-search-plugin/contracts/ui-interface';
+import { SearchPluginSettings } from '../../src/types/ui-interface';
 import { defaultSettings, withDefaults } from '../../src/settings';
 import { PluginSettings } from '../../src/ui/PluginSettings';
 import { DataManager } from '../../src/services/DataManager';
