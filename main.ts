@@ -9,6 +9,7 @@ import { EmbeddingEngine } from './src/services/EmbeddingEngine';
 import { FileWatcher } from './src/services/FileWatcher';
 import { IgnorePatternProcessor } from './src/services/IgnorePatternProcessor';
 import { DataManager } from './src/services/DataManager';
+import { PersistedIndex } from './src/services/PersistedIndex';
 
 // UI Components
 import { PluginSettings } from './src/ui/PluginSettings';
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: SearchPluginSettings = {
     defaultToHybrid: true,
     minSemanticScore: 0.3,
     keywordMatch: 'all' as const,
+    persistIndex: false,
     performance: {
         batchSize: 10,
         maxMemoryMB: 512,
@@ -53,6 +55,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
     fileWatcher!: FileWatcher;
     ignorePatternProcessor!: IgnorePatternProcessor;
     dataManager!: DataManager;
+    persistedIndex!: PersistedIndex;
     ribbonIcon: HTMLElement | null = null;
     private _pluginSettings?: PluginSettings;
     private _searchModal?: SearchModal;
@@ -120,6 +123,7 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
 
             // Clean up services
             this.fileWatcher?.dispose();
+            await this.persistedIndex?.flush();
             await this.embeddingEngine?.cleanup();
 
             // Clear service references
@@ -154,10 +158,23 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.documentIndexer.embeddingEngine = this.embeddingEngine;
         this.documentIndexer.ignorePatternProcessor = this.ignorePatternProcessor;
         this.documentIndexer.debug = this.settings.advanced.debugMode;
+        this.documentIndexer.chunkSize = this.settings.chunkSize;
 
         this.semanticSearchEngine = new SemanticSearchEngine();
         this.semanticSearchEngine.minSemanticScore = this.settings.minSemanticScore;
         this.semanticSearchEngine.keywordMatch = this.settings.keywordMatch;
+        this.semanticSearchEngine.maxResults = this.settings.maxResults;
+
+        // The saved index lives in this plugin's folder in the vault, so each
+        // vault has its own.
+        const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+        this.persistedIndex = new PersistedIndex(
+            this.app.vault.adapter,
+            `${pluginDir}/index.json`,
+            this.semanticSearchEngine,
+            () => this.documentIndexer.chunkSize,
+        );
+        this.semanticSearchEngine.onChange = (): void => this.persistedIndex.changed();
 
         // Connect DocumentIndexer to SemanticSearchEngine for proper data flow
         this.documentIndexer.searchEngine = this.semanticSearchEngine;
@@ -165,10 +182,12 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         this.fileWatcher = new FileWatcher(this.app.vault, this.documentIndexer);
 
         this.dataManager = new DataManager(this.app, {
-            clear: (): number => {
+            clear: async (): Promise<number> => {
                 // Stop a running scan so it doesn't refill the index straight away.
                 this.documentIndexer.cancelBackgroundIndexing();
-                return this.semanticSearchEngine.clear();
+                const cleared = this.semanticSearchEngine.clear();
+                await this.persistedIndex.remove();
+                return cleared;
             },
         });
     }
@@ -186,7 +205,8 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         // This allows the plugin to become functional while model loads in background
         void engine.initialize().catch(error => {
             console.error('EmbeddingEngine initialization failed:', error);
-            new Notice(`Semantic Search: could not load the embedding model. ${error instanceof Error ? error.message : String(error)}`, 0);
+            const reason = error instanceof Error ? error.message : String(error);
+            new Notice(`Semantic Search: could not load the embedding model. ${reason}`, 0);
         });
         return engine;
     }
@@ -312,8 +332,18 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
     }
 
     private async startIndexing(): Promise<void> {
+        // Restore the saved index first, so only notes that have changed since
+        // it was saved are embedded again.
+        const restored = await this.persistedIndex.start(this.settings.persistIndex);
+        if (restored > 0) {
+            console.log(`Restored ${restored} notes from the saved index`);
+        }
+
         // Start background indexing without waiting for it to complete
-        void this.documentIndexer.indexVaultInBackground();
+        void (async (): Promise<void> => {
+            await this.documentIndexer.indexVaultInBackground();
+            await this.persistedIndex.flush();
+        })();
         this.fileWatcher.initialize();
     }
 
@@ -378,8 +408,12 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         if (this.documentIndexer) {
             this.documentIndexer.debug = this.settings.advanced.debugMode;
         }
-        if (this.documentIndexer && newSettings.chunkSize) {
-            this.documentIndexer.chunkSize = newSettings.chunkSize;
+        await this.persistedIndex?.setEnabled(this.settings.persistIndex);
+        if (this.documentIndexer && this.settings.chunkSize !== this.documentIndexer.chunkSize) {
+            // Chunks of different sizes shouldn't be mixed in one index, or in
+            // its saved copy, so rebuild with the new size.
+            this.documentIndexer.chunkSize = this.settings.chunkSize;
+            void this.rebuildIndex();
         }
         if (this.semanticSearchEngine && newSettings.maxResults) {
             this.semanticSearchEngine.maxResults = newSettings.maxResults;

@@ -198,9 +198,19 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
     private addDataManagementSettings(): void {
         this.containerEl.createEl('h3', { text: 'Data Management' });
 
+        new Setting(this.containerEl)
+            .setName('Keep the index between sessions')
+            .setDesc('Save the index in this plugin\'s folder in the vault (index.json), so notes are not embedded again each time Obsidian starts. The file contains the text of your notes and is copied by anything that syncs or backs up the .obsidian folder. Turning this off deletes it.')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.persistIndex)
+                .onChange(async (value) => {
+                    this.settings.persistIndex = value;
+                    await this.saveCallback(this.settings);
+                }));
+
         const clearDataSetting = new Setting(this.containerEl)
             .setName('Clear Search Index Data')
-            .setDesc('Permanently delete all stored search data (embeddings, documents, chunks). Your files will not be affected.');
+            .setDesc('Clear the search index, including the saved copy if there is one. Your notes are not affected. The index is rebuilt by "Rebuild Search Index" or the next time Obsidian starts.');
 
         // Add status display
         const statusEl = clearDataSetting.settingEl.createDiv('data-clear-status');
@@ -292,6 +302,7 @@ export class PluginSettings extends PluginSettingTab implements IPluginSettings 
             defaultToHybrid: true,
             minSemanticScore: 0.3,
             keywordMatch: 'all',
+            persistIndex: false,
             performance: { batchSize: 100, maxMemoryMB: 500, backgroundProcessing: true },
             ui: { showInSidebar: true, searchHotkey: 'Ctrl+Shift+F', snippetLength: 150, theme: 'default' },
             advanced: { model: { name: 'all-MiniLM-L6-v2', quantization: 'fp32' }, debugMode: false, fileFilters: [] }

@@ -24,6 +24,10 @@ export class SemanticSearchEngine implements SearchEngine {
   // Plugin compatibility properties
   maxResults: number = 10;
 
+  // onChange, when set, is called whenever documents are added or removed,
+  // so a saved copy of the index can be kept up to date.
+  onChange?: () => void;
+
   // Minimum cosine similarity for a chunk to count as a semantic match. On the
   // test vault, unrelated queries peak near 0.23 and real topics start near 0.33.
   minSemanticScore: number = 0.3;
@@ -264,6 +268,7 @@ export class SemanticSearchEngine implements SearchEngine {
   // Public methods for index management
   addDocument(document: Document): void {
     this.documents.set(document.id, document);
+    this.onChange?.();
   }
 
   addChunk(chunk: Chunk): void {
@@ -271,7 +276,9 @@ export class SemanticSearchEngine implements SearchEngine {
   }
 
   removeDocument(documentId: string): void {
-    this.documents.delete(documentId);
+    if (this.documents.delete(documentId)) {
+      this.onChange?.();
+    }
     // Remove associated chunks
     for (const [chunkId, chunk] of this.chunks.entries()) {
       if (chunk.documentId === documentId) {
@@ -292,6 +299,7 @@ export class SemanticSearchEngine implements SearchEngine {
     this.chunks.clear();
     this.queryCache.clear();
     this.embeddingEngine.clearCache();
+    this.onChange?.();
     return removed;
   }
 
@@ -308,6 +316,10 @@ export class SemanticSearchEngine implements SearchEngine {
 
   getDocuments(): Document[] {
     return [...this.documents.values()];
+  }
+
+  getChunks(): Chunk[] {
+    return [...this.chunks.values()];
   }
 
   getDocumentCount(): number {

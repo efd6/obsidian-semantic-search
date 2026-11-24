@@ -108,6 +108,9 @@ export interface SearchPluginSettings {
   /** Whether a keyword match needs every query term or any one of them */
   keywordMatch: 'all' | 'any';
 
+  /** Save the index in the vault so notes aren't re-embedded on each start */
+  persistIndex: boolean;
+
   /** Index update performance settings */
   performance: {
     /** Batch size for processing documents */

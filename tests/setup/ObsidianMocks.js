@@ -210,7 +210,22 @@ class MockApp {
             // Default to file:// URL format for URL constructor compatibility
             return 'file:///mock/vault/path';
         };
+        // adapterFiles holds files written through the adapter, such as the
+        // plugin's saved index, separately from the vault's notes.
+        const adapterFiles = new Map();
         this.vault.adapter = {
+            exists: jest.fn(async (path) => adapterFiles.has(path)),
+            read: jest.fn(async (path) => {
+                if (!adapterFiles.has(path)) throw new Error(`ENOENT: ${path}`);
+                return adapterFiles.get(path);
+            }),
+            write: jest.fn(async (path, data) => { adapterFiles.set(path, data); }),
+            remove: jest.fn(async (path) => { adapterFiles.delete(path); }),
+            rename: jest.fn(async (from, to) => {
+                if (adapterFiles.has(to)) throw new Error(`Destination exists: ${to}`);
+                adapterFiles.set(to, adapterFiles.get(from));
+                adapterFiles.delete(from);
+            }),
             getBasePath: basePathFn,
             getResourcePath: (relativePath) => {
                 const basePath = basePathFn();
