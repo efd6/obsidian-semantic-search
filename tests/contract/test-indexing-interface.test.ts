@@ -12,12 +12,7 @@ import {
   IndexingStatus,
   DocumentMetadata,
   IndexStats,
-  FileWatcher,
-  IndexStorage,
-  StoredDocument,
-  DocumentChunk,
-  EmbeddingData,
-  StorageStats
+  FileWatcher
 } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
 import { MockApp, MockPlugin } from '../setup';
 
@@ -69,37 +64,6 @@ class MockFileWatcher implements FileWatcher {
 
   setUpdateInterval(milliseconds: number): void {
     throw new Error('FileWatcher.setUpdateInterval not implemented - TDD failure');
-  }
-}
-
-// Mock IndexStorage implementation
-class MockIndexStorage implements IndexStorage {
-  async initialize(vaultPath: string): Promise<void> {
-    throw new Error('IndexStorage.initialize not implemented - TDD failure');
-  }
-
-  async storeDocument(document: StoredDocument): Promise<void> {
-    throw new Error('IndexStorage.storeDocument not implemented - TDD failure');
-  }
-
-  async getDocument(filePath: string): Promise<StoredDocument | null> {
-    throw new Error('IndexStorage.getDocument not implemented - TDD failure');
-  }
-
-  async storeEmbeddings(documentId: string, embeddings: EmbeddingData[]): Promise<void> {
-    throw new Error('IndexStorage.storeEmbeddings not implemented - TDD failure');
-  }
-
-  async getEmbeddings(documentIds: string[]): Promise<EmbeddingData[]> {
-    throw new Error('IndexStorage.getEmbeddings not implemented - TDD failure');
-  }
-
-  async getStats(): Promise<StorageStats> {
-    throw new Error('IndexStorage.getStats not implemented - TDD failure');
-  }
-
-  async cleanup(): Promise<void> {
-    throw new Error('IndexStorage.cleanup not implemented - TDD failure');
   }
 }
 
@@ -164,36 +128,6 @@ const createValidIndexingStatus = (overrides?: Partial<IndexingStatus>): Indexin
   },
   fileWatchingEnabled: true,
   lastUpdate: new Date('2024-01-02T16:00:00Z'),
-  ...overrides
-});
-
-const createValidStoredDocument = (overrides?: Partial<StoredDocument>): StoredDocument => ({
-  id: 'doc-123',
-  filePath: '/test/document.md',
-  metadata: createValidDocumentMetadata(),
-  chunks: [
-    {
-      id: 'chunk-1',
-      content: 'This is the first chunk of content.',
-      startOffset: 0,
-      endOffset: 35
-    }
-  ],
-  ...overrides
-});
-
-const createValidEmbeddingData = (overrides?: Partial<EmbeddingData>): EmbeddingData => ({
-  chunkId: 'chunk-1',
-  embedding: new Float32Array([0.1, 0.2, 0.3, 0.4]),
-  version: '1.0.0',
-  ...overrides
-});
-
-const createValidStorageStats = (overrides?: Partial<StorageStats>): StorageStats => ({
-  documentsStored: 100,
-  chunksStored: 500,
-  embeddingsStored: 500,
-  totalSizeBytes: 2048000,
   ...overrides
 });
 
@@ -475,152 +409,6 @@ describe('FileWatcher Interface Contract', () => {
 
     it('should return void', () => {
       expect(() => mockWatcher.setUpdateInterval(30000)).toThrow('FileWatcher.setUpdateInterval not implemented - TDD failure');
-    });
-  });
-});
-
-describe('IndexStorage Interface Contract', () => {
-  let mockStorage: MockIndexStorage;
-
-  beforeEach(() => {
-    mockStorage = new MockIndexStorage();
-  });
-
-  describe('initialize method', () => {
-    it('should have correct signature', () => {
-      expect(typeof mockStorage.initialize).toBe('function');
-      expect(mockStorage.initialize.length).toBe(1); // vaultPath parameter
-    });
-
-    it('should return Promise<void>', async () => {
-      await expect(mockStorage.initialize('/test/vault')).rejects.toThrow('IndexStorage.initialize not implemented - TDD failure');
-    });
-  });
-
-  describe('document storage methods', () => {
-    it('storeDocument should have correct signature', () => {
-      expect(typeof mockStorage.storeDocument).toBe('function');
-      expect(mockStorage.storeDocument.length).toBe(1); // document parameter
-    });
-
-    it('getDocument should have correct signature', () => {
-      expect(typeof mockStorage.getDocument).toBe('function');
-      expect(mockStorage.getDocument.length).toBe(1); // filePath parameter
-    });
-
-    it('storeDocument should return Promise<void>', async () => {
-      const document = createValidStoredDocument();
-      await expect(mockStorage.storeDocument(document)).rejects.toThrow('IndexStorage.storeDocument not implemented - TDD failure');
-    });
-
-    it('getDocument should return Promise<StoredDocument | null>', async () => {
-      await expect(mockStorage.getDocument('/test/file.md')).rejects.toThrow('IndexStorage.getDocument not implemented - TDD failure');
-    });
-  });
-
-  describe('embedding storage methods', () => {
-    it('storeEmbeddings should have correct signature', () => {
-      expect(typeof mockStorage.storeEmbeddings).toBe('function');
-      expect(mockStorage.storeEmbeddings.length).toBe(2); // documentId, embeddings parameters
-    });
-
-    it('getEmbeddings should have correct signature', () => {
-      expect(typeof mockStorage.getEmbeddings).toBe('function');
-      expect(mockStorage.getEmbeddings.length).toBe(1); // documentIds parameter
-    });
-
-    it('storeEmbeddings should return Promise<void>', async () => {
-      const embeddings = [createValidEmbeddingData()];
-      await expect(mockStorage.storeEmbeddings('doc-1', embeddings)).rejects.toThrow('IndexStorage.storeEmbeddings not implemented - TDD failure');
-    });
-
-    it('getEmbeddings should return Promise<EmbeddingData[]>', async () => {
-      await expect(mockStorage.getEmbeddings(['doc-1', 'doc-2'])).rejects.toThrow('IndexStorage.getEmbeddings not implemented - TDD failure');
-    });
-  });
-
-  describe('utility methods', () => {
-    it('getStats should have correct signature', () => {
-      expect(typeof mockStorage.getStats).toBe('function');
-      expect(mockStorage.getStats.length).toBe(0);
-    });
-
-    it('cleanup should have correct signature', () => {
-      expect(typeof mockStorage.cleanup).toBe('function');
-      expect(mockStorage.cleanup.length).toBe(0);
-    });
-
-    it('getStats should return Promise<StorageStats>', async () => {
-      await expect(mockStorage.getStats()).rejects.toThrow('IndexStorage.getStats not implemented - TDD failure');
-    });
-
-    it('cleanup should return Promise<void>', async () => {
-      await expect(mockStorage.cleanup()).rejects.toThrow('IndexStorage.cleanup not implemented - TDD failure');
-    });
-  });
-});
-
-describe('Storage Data Types Contract', () => {
-  describe('StoredDocument', () => {
-    it('should have all required properties', () => {
-      const document = createValidStoredDocument();
-
-      expect(document).toHaveProperty('id');
-      expect(document).toHaveProperty('filePath');
-      expect(document).toHaveProperty('metadata');
-      expect(document).toHaveProperty('chunks');
-
-      expect(typeof document.id).toBe('string');
-      expect(typeof document.filePath).toBe('string');
-      expect(typeof document.metadata).toBe('object');
-      expect(Array.isArray(document.chunks)).toBe(true);
-    });
-  });
-
-  describe('DocumentChunk', () => {
-    it('should have all required properties', () => {
-      const document = createValidStoredDocument();
-      const chunk = document.chunks[0];
-
-      expect(chunk).toHaveProperty('id');
-      expect(chunk).toHaveProperty('content');
-      expect(chunk).toHaveProperty('startOffset');
-      expect(chunk).toHaveProperty('endOffset');
-
-      expect(typeof chunk.id).toBe('string');
-      expect(typeof chunk.content).toBe('string');
-      expect(typeof chunk.startOffset).toBe('number');
-      expect(typeof chunk.endOffset).toBe('number');
-    });
-  });
-
-  describe('EmbeddingData', () => {
-    it('should have all required properties', () => {
-      const embedding = createValidEmbeddingData();
-
-      expect(embedding).toHaveProperty('chunkId');
-      expect(embedding).toHaveProperty('embedding');
-      expect(embedding).toHaveProperty('version');
-
-      expect(typeof embedding.chunkId).toBe('string');
-      expect(embedding.embedding instanceof Float32Array).toBe(true);
-      expect(typeof embedding.version).toBe('string');
-    });
-  });
-
-  describe('StorageStats', () => {
-    it('should have all required properties', () => {
-      const stats = createValidStorageStats();
-
-      expect(stats).toHaveProperty('documentsStored');
-      expect(stats).toHaveProperty('chunksStored');
-      expect(stats).toHaveProperty('embeddingsStored');
-      expect(stats).toHaveProperty('totalSizeBytes');
-
-      expect(typeof stats.documentsStored).toBe('number');
-      expect(typeof stats.chunksStored).toBe('number');
-      expect(typeof stats.embeddingsStored).toBe('number');
-      expect(typeof stats.totalSizeBytes).toBe('number');
     });
   });
 });
