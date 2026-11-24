@@ -158,6 +158,15 @@ describe('EmbeddingEngine', () => {
             }
         });
 
+        test('texts sharing a long prefix and length get their own embeddings', async () => {
+            // Notes made from the same template often share their opening.
+            const prefix = 'x'.repeat(150);
+            const a = await engine.generateEmbedding(`${prefix}a`);
+            const b = await engine.generateEmbedding(`${prefix}b`);
+
+            expect(b).not.toEqual(a);
+        });
+
         test('cache can be cleared', async () => {
             if (typeof engine.clearCache === 'function') {
                 expect(() => engine.clearCache()).not.toThrow();

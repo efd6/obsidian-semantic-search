@@ -23,6 +23,9 @@ export class EmbeddingEngine {
     private model: use.UniversalSentenceEncoder | null = null;
     private isLoading = false;
     private loadPromise: Promise<use.UniversalSentenceEncoder> | null = null;
+    // embeddingCache maps text to its embedding. It is keyed on the whole text:
+    // a shortened key lets texts that share an opening, such as notes made
+    // from the same template, get each other's embeddings.
     private embeddingCache = new Map<string, Float32Array>();
     private readonly maxCacheSize = 1000;
     private requestQueue: QueuedRequest[] = [];
@@ -218,8 +221,7 @@ export class EmbeddingEngine {
     public async generateEmbedding(text: string): Promise<Float32Array> {
         if (!text.trim()) throw new Error('Text cannot be empty');
 
-        const cacheKey = this.getCacheKey(text);
-        const cached = this.embeddingCache.get(cacheKey);
+        const cached = this.embeddingCache.get(text);
         if (cached) return cached;
 
         // If model is not ready, queue the request
@@ -252,8 +254,7 @@ export class EmbeddingEngine {
                 throw new Error(`Expected 512 dimensions, got ${embedding.length}`);
             }
 
-            const cacheKey = this.getCacheKey(text);
-            this.cacheEmbedding(cacheKey, embedding);
+            this.cacheEmbedding(text, embedding);
             return embedding;
         } catch (error) {
             throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -317,8 +318,7 @@ export class EmbeddingEngine {
                     embeddings.push(embedding);
 
                     // Cache individual embeddings
-                    const cacheKey = this.getCacheKey(batch[j]);
-                    this.cacheEmbedding(cacheKey, new Float32Array(embedding));
+                    this.cacheEmbedding(batch[j], new Float32Array(embedding));
                 }
 
                 // Clean up tensor
@@ -329,10 +329,6 @@ export class EmbeddingEngine {
         }
 
         return { embeddings, dimensions: 512 };
-    }
-
-    private getCacheKey(text: string): string {
-        return text.length > 100 ? text.slice(0, 100) + `_${text.length}` : text;
     }
 
     private cacheEmbedding(key: string, embedding: Float32Array): void {
