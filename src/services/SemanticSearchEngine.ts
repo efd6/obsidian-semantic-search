@@ -302,6 +302,14 @@ export class SemanticSearchEngine implements SearchEngine {
     };
   }
 
+  getDocument(documentId: string): Document | undefined {
+    return this.documents.get(documentId);
+  }
+
+  getDocuments(): Document[] {
+    return [...this.documents.values()];
+  }
+
   getDocumentCount(): number {
     return this.documents.size;
   }

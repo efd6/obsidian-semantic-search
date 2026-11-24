@@ -39,6 +39,10 @@ const { TFile } = require('obsidian');
 
 // Mock crypto utils
 jest.mock('../../src/utils/crypto', () => ({
+    BrowserCrypto: {
+        // Unique per content, which is all the indexer relies on.
+        sha256: jest.fn(async (data) => `sha256:${data}`)
+    },
     createHash: jest.fn().mockReturnValue({
         update: jest.fn().mockReturnThis(),
         digest: jest.fn().mockReturnValue('mock-checksum-123')

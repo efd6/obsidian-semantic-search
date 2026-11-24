@@ -10,11 +10,13 @@ import {
 } from '../../specs/001-obsidian-search-plugin/contracts/indexing-interface';
 import { Chunk } from '../models/Chunk';
 import { Document } from '../models/Document';
-import { createHash } from '../utils/crypto';
+import { BrowserCrypto, createHash } from '../utils/crypto';
 import { IgnorePatternProcessor } from './IgnorePatternProcessor';
 
 // Type definitions for plugin compatibility
 interface CompatibleSearchEngine {
+  getDocument?(documentId: string): Document | undefined;
+  getDocuments?(): Document[];
   addDocument?(document: Document): void;
   addChunk?(chunk: Chunk): void;
   removeDocument?(documentId: string): void;
@@ -72,6 +74,15 @@ export class DocumentIndexer implements IDocumentIndexer {
       console.log(`🔍 DocumentIndexer: Filtered ${allMdFiles.length - mdFiles.length} files using ignore patterns`);
     }
 
+    // Drop notes whose files have gone, for example ones deleted or renamed
+    // while Obsidian was closed.
+    const present = new Set(allMdFiles.map(file => file.path));
+    for (const doc of this.searchEngine?.getDocuments?.() ?? []) {
+      if (!present.has(doc.filePath)) {
+        this.searchEngine?.removeDocument?.(doc.id);
+      }
+    }
+
     const results: DocumentIndexResult[] = [];
     const failures: IndexingFailure[] = [];
 
@@ -95,7 +106,9 @@ export class DocumentIndexer implements IDocumentIndexer {
           failures.push({ filePath: file.path, error: result.error, errorType: 'parsing' });
           this.log(`❌ Failed to index: ${file.path} - ${result.error}`);
         } else {
-          this.log(`✅ Indexed: ${file.path} (${result.chunkCount} chunks)`);
+          this.log(result.unchanged
+            ? `⏭️ Unchanged: ${file.path}`
+            : `✅ Indexed: ${file.path} (${result.chunkCount} chunks)`);
         }
       } catch (error) {
         failures.push({ filePath: file.path, error: String(error), errorType: 'parsing' });
@@ -208,6 +221,20 @@ export class DocumentIndexer implements IDocumentIndexer {
       }
 
       const content = await this.vault.read(file as TFile);
+
+      // Embedding is the expensive part, so skip notes whose content is
+      // already indexed.
+      const contentHash = await BrowserCrypto.sha256(content);
+      if (this.searchEngine?.getDocument?.(Document.idFor(file.path))?.contentHash === contentHash) {
+        return {
+          filePath,
+          success: true,
+          unchanged: true,
+          chunkCount: 0,
+          timeElapsed: Date.now() - startTime
+        };
+      }
+
       const metadata = this.extractMetadata(file as TFile, content);
 
       // Create document instance first
@@ -224,6 +251,7 @@ export class DocumentIndexer implements IDocumentIndexer {
       // Create chunks using the document's actual ID
       const chunks = await this.createChunks(content, document.id);
 
+      document.contentHash = contentHash;
       document.markAsIndexed();
 
       // Remove the previous version first. Otherwise, when a note gets shorter,

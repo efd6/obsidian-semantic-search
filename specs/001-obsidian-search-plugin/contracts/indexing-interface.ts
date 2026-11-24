@@ -63,6 +63,9 @@ export interface DocumentIndexResult {
   /** Whether indexing was successful */
   success: boolean;
 
+  /** Whether the note was skipped because its content had not changed */
+  unchanged?: boolean;
+
   /** Error message if failed */
   error?: string;
 

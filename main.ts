@@ -350,6 +350,9 @@ export default class SemanticSearchPluginMain extends Plugin implements Semantic
         const startTime = Date.now();
         try {
             this.statusBar.update(this.getStatus());
+            // Start from empty so every note is embedded again, for example
+            // after the chunk size has changed.
+            this.semanticSearchEngine.clear();
             await this.documentIndexer.indexVault();
             return {
                 success: true,

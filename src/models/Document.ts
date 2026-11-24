@@ -39,6 +39,9 @@ export class Document implements IDocument {
   public lastIndexed: Date | null;
   public checksum: string;
   public state: DocumentState;
+  // contentHash is the SHA-256, in hex, of the note's content when it was
+  // indexed. The indexer uses it to skip notes that have not changed.
+  public contentHash = '';
 
   constructor(data: Omit<IDocument, 'id' | 'checksum' | 'state' | 'lastIndexed'>) {
     this.filePath = data.filePath;

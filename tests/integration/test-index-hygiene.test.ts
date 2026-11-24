@@ -148,7 +148,43 @@ describe('index hygiene', () => {
     });
   });
 
-  describe('embedding failures', () => {
+  describe('incremental indexing', () => {
+    function countingEmbedder(): { generateEmbedding: jest.Mock } {
+      return { generateEmbedding: jest.fn(() => Promise.resolve(new Float32Array(512).fill(0.1))) };
+    }
+
+    it('does not re-embed notes whose content has not changed', async () => {
+      const tv = newTestVault({ 'a.md': 'alpha content', 'b.md': 'bravo content' });
+      const { indexer } = newIndexer(tv);
+      const embedder = countingEmbedder();
+      indexer.embeddingEngine = embedder;
+
+      await indexer.indexVault();
+      expect(embedder.generateEmbedding).toHaveBeenCalledTimes(2);
+
+      embedder.generateEmbedding.mockClear();
+      await indexer.indexVault();
+      expect(embedder.generateEmbedding).not.toHaveBeenCalled();
+
+      tv.files['b.md'] = 'bravo content, edited';
+      await indexer.indexVault();
+      expect(embedder.generateEmbedding.mock.calls).toEqual([['bravo content, edited']]);
+    });
+
+    it('indexVault removes notes whose files no longer exist', async () => {
+      const tv = newTestVault({ 'a.md': 'alpha content', 'b.md': 'bravo content' });
+      const { indexer, engine } = newIndexer(tv);
+
+      await indexer.indexVault();
+      delete tv.files['b.md'];
+      await indexer.indexVault();
+
+      expect(indexedPaths(engine)).toEqual(['a.md']);
+      expect(indexedText(engine)).not.toContain('bravo');
+    });
+  });
+
+    describe('embedding failures', () => {
     it('a note whose embedding fails is not indexed with made-up embeddings', async () => {
       const tv = newTestVault({ 'a.md': 'alpha content' });
       const { indexer, engine } = newIndexer(tv);
